@@ -10,6 +10,8 @@ You can select the types of errors you want displaying, sort in different ways o
 
 ![Usage](http://amnuts.com/images/phperror/screenshot/usage.png)
 
+The interface will also attempt to show you the snippet of code where the error has occurred and alos, if recorded in the log file, the stack trace.
+
 ### cache
 
 There is a very rundementary option to cache the results.  This is set by using the $cache variable and setting it to the path of the cache file (must be a writable location). It will store the results of the file scan and then the position in the file it read up to. On subsequent reads of the file it will seek to that position and start to read the file. This works so long as you are not doing log rotation as the seek position could suddenly become much greater than the file size. So it's only recommended that you use the cache if you keep the one log file.
