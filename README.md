@@ -6,11 +6,11 @@ A simple but effective single-file GUI for viewing entries in the PHP error log.
 
 Simply load the script up in your browser and it should show you the entries from the PHP log file.  It will find the error log from the ini settings, though if you want to specify the log file you can change the $error_log variable to the path of your error log file.
 
-You can select the types of errors you want displaying, sort in different ways or filter based on the path of the file producing the error as recoded in the log.
+You can select the types of errors you want displaying, sort in different ways or filter based on the path of the file producing the error (as recoded in the log).
 
 ![Usage](http://amnuts.com/images/phperror/screenshot/usage.png)
 
-The interface will also attempt to show you the snippet of code where the error has occurred and alos, if recorded in the log file, the stack trace.
+The interface will also attempt to show you the snippet of code where the error has occurred and also the stack trace if it's recorded in the log file.
 
 ### cache
 
