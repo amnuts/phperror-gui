@@ -10,13 +10,13 @@ There are two ways to getting started using this gui.
 
 1. Simply to copy/paste or download the phperror-gui.php to your server.
 2. Install via composer by adding this to your composer.json file:
-    ```json
-    {
-        "require": {
-            "amnuts/phperror-gui": "*"
-        }
+```json
+{
+    "require": {
+        "amnuts/phperror-gui": "*"
     }
-    ```
+ }
+```
 
 ### usage
 
