@@ -4,6 +4,20 @@ A simple but effective single-file GUI for viewing entries in the PHP error log.
 
 [![Flattr this git repo](http://api.flattr.com/button/flattr-badge-large.png)](https://flattr.com/submit/auto?user_id=acollington&url=https://github.com/amnuts/phperror-gui&title=phperror-gui&language=&tags=github&category=software)
 
+### getting started
+
+There are two ways to getting started using this gui.
+
+1. Simply to copy/paste or download the phperror-gui.php to your server.
+2. Install via composer by adding this to your composer.json file:
+    ```json
+    {
+        "require": {
+            "amnuts/phperror-gui": "*"
+        }
+    }
+    ```
+
 ### usage
 
 Simply load the script up in your browser and it should show you the entries from the PHP log file.  It will find the error log from the ini settings, though if you want to specify the log file you can change the $error_log variable to the path of your error log file.

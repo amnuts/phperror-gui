@@ -1,0 +1,16 @@
+{
+  "name": "amnuts/phperror-gui",
+  "description": "A simple but effective single-file GUI for viewing entries in the PHP error log.",
+  "minimum-stability": "stable",
+  "license": "MIT",
+  "authors": [
+    {
+      "name": "Andrew Collington",
+      "email": "andy@amnuts.com"
+    }
+  ],
+  "require": {
+    "PHP": ">=5.5.0"
+  }
+}
+
