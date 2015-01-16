@@ -191,7 +191,7 @@ ksort($types);
         }
         #typeFilter, #pathFilter, #sortOptions { border: 0; margin: 0; padding: 0; }
         #pathFilter input { width: 30em; }
-        #typeFilter label { border-bottom: 2px solid #000000; margin-right: 1em; }
+        #typeFilter label { border-bottom: 4px solid #000000; margin-right: 1em; padding-bottom: 2px; }
         #nothingToShow { display: none; }
         .odd { background-color: #fcfcfc; }
         .even { background-color: #f8f8f8; }
@@ -211,7 +211,11 @@ ksort($types);
     <fieldset id="typeFilter">
         <p>Filter by type: 
             <?php foreach ($types as $title => $class): ?>
-            <label class="<?php echo $class; ?>"><input type="checkbox" value="<?php echo $class; ?>" checked="checked" /> <?php echo $title; ?> (<?php echo $typecount[$title]; ?>)</label>
+            <label class="<?php echo $class; ?>">
+                <input type="checkbox" value="<?php echo $class; ?>" checked="checked" /> <?php
+                    echo $title; ?> (<span data-total="<?php echo $typecount[$title]; ?>"><?php
+                    echo $typecount[$title]; ?></span>)
+            </label>
             <?php endforeach; ?>
         </p>
     </fieldset>
@@ -280,7 +284,8 @@ function stripe() {
 }
 
 function visible() {
-    var len = $('article:visible').length;
+    var vis = $('article:visible');
+    var len = vis.length;
     if (len == 0) {
         $('#nothingToShow').show();
         $('#entryCount').text('0 entries showing (<?php echo $total; ?> filtered out)');
@@ -293,22 +298,44 @@ function visible() {
                 + (<?php echo $total; ?> - len) + ' filtered out)');
         }
     }
+    $('#typeFilter label span').each(function(){
+        var count = ($('#pathFilter input').val() == ''
+            ? $(this).data('total')
+            : $(this).data('current') + '/' + $(this).data('total')
+        );
+        $(this).text(count);
+    });
     stripe();
 }
 
 function filterSet() {
+    var typeCount = {};
     var checked = $('#typeFilter input:checkbox:checked').map(function(){
         return $(this).val();
     }).get();
     var input = $('#pathFilter input').val();
     $('article').each(function(){
         var a = $(this);
-        if ((input.length && a.data('path').toLowerCase().indexOf(input.toLowerCase()) == -1)
-                || (jQuery.inArray(a.data('type'), checked) == -1)
-        ) {
-            a.css('display', 'none');
+        var found = a.data('path').toLowerCase().indexOf(input.toLowerCase());
+        if ((input.length && found == -1) || (jQuery.inArray(a.data('type'), checked) == -1)) {
+            a.hide();
         } else {
-            a.css('display', 'block');
+            a.show();
+        }
+        if (found != -1) {
+            if (typeCount.hasOwnProperty(a.data('type'))) {
+                ++typeCount[a.data('type')];
+            } else {
+                typeCount[a.data('type')] = 1;
+            }
+        }
+    });
+    $('#typeFilter label').each(function(){
+        var type = $(this).attr('class');
+        if (typeCount.hasOwnProperty(type)) {
+            $('span', $(this)).data('current', typeCount[type]);
+        } else {
+            $('span', $(this)).data('current', 0);
         }
     });
 }
