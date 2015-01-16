@@ -166,6 +166,16 @@ osort($logs, ['last' => SORT_DESC]);
 $total = count($logs);
 ksort($types);
 
+$host = (function_exists('gethostname')
+    ? gethostname()
+    : (php_uname('n')
+        ?: (empty($_SERVER['SERVER_NAME'])
+            ? $_SERVER['HOST_NAME']
+            : $_SERVER['SERVER_NAME']
+        )
+    )
+);
+
 ?><!doctype html>
 <head>
     <meta charset="UTF-8"/>
@@ -174,7 +184,7 @@ ksort($types);
     <meta name="HandheldFriendly" content="True">
     <meta name="MobileOptimized" content="320">
     <meta name="generator" content="https://github.com/amnuts/phperror-gui" />
-    <title>PHP error log viewer</title>
+    <title>PHP error log on <?php echo htmlentities($host); ?></title>
     <script src="https://code.jquery.com/jquery-2.1.1.min.js" type="text/javascript"></script>
     <style type="text/css">
         body { font-family: Arial, Helvetica, sans-serif; font-size: 80%; margin: 0; padding: 0; }
@@ -223,6 +233,10 @@ ksort($types);
 
 <div id="container">
 <?php if (!empty($logs)): ?>
+
+    <p id="serverDetails">Error log '<?php echo htmlentities($error_log); ?>' on <?php
+        echo htmlentities($host); ?> (PHP <?php echo phpversion();
+        ?>, <?php echo htmlentities($_SERVER['SERVER_SOFTWARE']); ?>)</p>
 
     <fieldset id="typeFilter">
         <p>Filter by type: 
