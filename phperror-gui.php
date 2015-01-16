@@ -173,10 +173,11 @@ ksort($types);
     <meta http-equiv="cleartype" content="on">
     <meta name="HandheldFriendly" content="True">
     <meta name="MobileOptimized" content="320">
+    <meta name="generator" content="https://github.com/amnuts/phperror-gui" />
     <title>PHP error log viewer</title>
     <script src="https://code.jquery.com/jquery-2.1.1.min.js" type="text/javascript"></script>
     <style type="text/css">
-        body { font-family: Arial, Helvetica, sans-serif; font-size: 80%; padding: 2em; }
+        body { font-family: Arial, Helvetica, sans-serif; font-size: 80%; margin: 0; padding: 0; }
         article { width: 100%; display: block; margin: 0 0 1em 0; }
         article > div { border: 1px solid #000000; border-left-width: 10px; padding: 1em; }
         article > div > b { font-weight: bold; display: block; }
@@ -189,6 +190,20 @@ ksort($types);
             overflow: auto;
             margin: 0;
         }
+        footer { border-top: 1px solid #ccc; padding: 1em 2em; }
+        footer a {
+            padding: 2em;
+            text-decoration: none;
+            opacity: 0.7;
+            background-position: 5px 50%;
+            background-repeat: no-repeat;
+            background-color: transparent;
+            background-position: 0 50%;
+            background-image: url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABIAAAAQCAYAAAAbBi9cAAAAGXRFWHRTb2Z0d2FyZQBBZG9iZSBJbWFnZVJlYWR5ccllPAAAAyBpVFh0WE1MOmNvbS5hZG9iZS54bXAAAAAAADw/eHBhY2tldCBiZWdpbj0i77u/IiBpZD0iVzVNME1wQ2VoaUh6cmVTek5UY3prYzlkIj8+IDx4OnhtcG1ldGEgeG1sbnM6eD0iYWRvYmU6bnM6bWV0YS8iIHg6eG1wdGs9IkFkb2JlIFhNUCBDb3JlIDUuMC1jMDYwIDYxLjEzNDc3NywgMjAxMC8wMi8xMi0xNzozMjowMCAgICAgICAgIj4gPHJkZjpSREYgeG1sbnM6cmRmPSJodHRwOi8vd3d3LnczLm9yZy8xOTk5LzAyLzIyLXJkZi1zeW50YXgtbnMjIj4gPHJkZjpEZXNjcmlwdGlvbiByZGY6YWJvdXQ9IiIgeG1sbnM6eG1wPSJodHRwOi8vbnMuYWRvYmUuY29tL3hhcC8xLjAvIiB4bWxuczp4bXBNTT0iaHR0cDovL25zLmFkb2JlLmNvbS94YXAvMS4wL21tLyIgeG1sbnM6c3RSZWY9Imh0dHA6Ly9ucy5hZG9iZS5jb20veGFwLzEuMC9zVHlwZS9SZXNvdXJjZVJlZiMiIHhtcDpDcmVhdG9yVG9vbD0iQWRvYmUgUGhvdG9zaG9wIENTNSBXaW5kb3dzIiB4bXBNTTpJbnN0YW5jZUlEPSJ4bXAuaWlkOjE2MENCRkExNzVBQjExRTQ5NDBGRTUzMzQyMDVDNzFFIiB4bXBNTTpEb2N1bWVudElEPSJ4bXAuZGlkOjE2MENCRkEyNzVBQjExRTQ5NDBGRTUzMzQyMDVDNzFFIj4gPHhtcE1NOkRlcml2ZWRGcm9tIHN0UmVmOmluc3RhbmNlSUQ9InhtcC5paWQ6MTYwQ0JGOUY3NUFCMTFFNDk0MEZFNTMzNDIwNUM3MUUiIHN0UmVmOmRvY3VtZW50SUQ9InhtcC5kaWQ6MTYwQ0JGQTA3NUFCMTFFNDk0MEZFNTMzNDIwNUM3MUUiLz4gPC9yZGY6RGVzY3JpcHRpb24+IDwvcmRmOlJERj4gPC94OnhtcG1ldGE+IDw/eHBhY2tldCBlbmQ9InIiPz7HtUU1AAABN0lEQVR42qyUvWoCQRSF77hCLLKC+FOlCKTyIbYQUuhbWPkSFnZ2NpabUvANLGyz5CkkYGMlFtFAUmiSM8lZOVkWsgm58K079+fMnTusZl92BXbgDrTtZ2szd8fas/XBOzmBKaiCEFyTkL4pc9L8vgpNJJDyWtDna61EoXpO+xcFfXUVqtrf7Vx7m9Pub/EatvgHoYXD4ylztC14BBVwydvydgDPHPgNaErN3jLKIxAUmEvAXK21I18SJpXBGAxyBAaMlblOWOs1bMXFkMGeBFsi0pJNe/QNuV7563+gs8LfhrRfE6GaHLuRqfnUiKi6lJ034B44EXL0baTTJWujNGkG3kBX5uRyZuRkPl3WzDTBtzjnxxiDDq83yNxUk7GYuXM53jeLuMNavvAXkv4zrJkTaeGHAAMAIal3icPMsyQAAAAASUVORK5CYII=');
+            font-size: 90%;
+        }
+        footer a:hover { opacity: 1; }
+        #container { padding: 2em; }
         #typeFilter, #pathFilter, #sortOptions { border: 0; margin: 0; padding: 0; }
         #pathFilter input { width: 30em; }
         #typeFilter label { border-bottom: 4px solid #000000; margin-right: 1em; padding-bottom: 2px; }
@@ -206,6 +221,7 @@ ksort($types);
 </head>
 <body>
 
+<div id="container">
 <?php if (!empty($logs)): ?>
 
     <fieldset id="typeFilter">
@@ -268,6 +284,11 @@ ksort($types);
 <?php else: ?>
     <p>There are currently no PHP error log entries available.</p>
 <?php endif; ?>
+</div>
+
+<footer>
+    <a href="https://github.com/amnuts/phperror-gui" target="_blank">https://github.com/amnuts/phperror-gui</a>
+</footer>
 
 <script type="text/javascript">
 function parseQueryString(qs) {
