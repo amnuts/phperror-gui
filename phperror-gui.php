@@ -2,10 +2,13 @@
 
 /**
  * PHP Error Log GUI
- * 
- * A simple but effective single-file GUI for viewing the PHP error log.
+ *
+ * A clean and effective single-file GUI for viewing entries in the PHP error
+ * log, allowing for filtering by path and by type.
  * 
  * @author Andrew Collington, andy@amnuts.com
+ * @version 1.0.1
+ * @link https://github.com/amnuts/phperror-gui
  * @license MIT, http://acollington.mit-license.org/
  */
 
@@ -185,7 +188,7 @@ $host = (function_exists('gethostname')
     <meta name="MobileOptimized" content="320">
     <meta name="generator" content="https://github.com/amnuts/phperror-gui" />
     <title>PHP error log on <?php echo htmlentities($host); ?></title>
-    <script src="https://code.jquery.com/jquery-2.1.1.min.js" type="text/javascript"></script>
+    <script src="//code.jquery.com/jquery-2.1.3.min.js" type="text/javascript"></script>
     <style type="text/css">
         body { font-family: Arial, Helvetica, sans-serif; font-size: 80%; margin: 0; padding: 0; }
         article { width: 100%; display: block; margin: 0 0 1em 0; }

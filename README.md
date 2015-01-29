@@ -1,6 +1,6 @@
 # phperror-gui
 
-A simple but effective single-file GUI for viewing entries in the PHP error log.
+A clean and effective single-file GUI for viewing entries in the PHP error log, allowing for filtering by path and by type.
 
 [![Flattr this git repo](http://api.flattr.com/button/flattr-badge-large.png)](https://flattr.com/submit/auto?user_id=acollington&url=https://github.com/amnuts/phperror-gui&title=phperror-gui&language=&tags=github&category=software)
 
@@ -30,7 +30,7 @@ The interface will also attempt to show you the snippet of code where the error 
 
 ### cache
 
-There is a very rundementary option to cache the results.  This is set by using the $cache variable and setting it to the path of the cache file (must be a writable location). It will store the results of the file scan and then the position in the file it read up to. On subsequent reads of the file it will seek to that position and start to read the file. This works so long as you are not doing log rotation as the seek position could suddenly become much greater than the file size. So it's only recommended that you use the cache if you keep the one log file.
+There is a very rudimentary option to cache the results.  This is set by using the $cache variable and setting it to the path of the cache file (must be a writable location). It will store the results of the file scan and then the position in the file it read up to. On subsequent reads of the file it will seek to that position and start to read the file. This works so long as you are not doing log rotation as the seek position could suddenly become much greater than the file size. So it's only recommended that you use the cache if you keep the one log file.
 
 # License
 
