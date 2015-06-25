@@ -98,7 +98,7 @@ while (!$log->eof()) {
 	}
 	
 	$more = [];
-	while (!preg_match('!^\[(?P<time>[^\]]*)\] PHP (?P<type>.*?):\s+(?P<msg>.*)$!', $log->current()) && !$log->eof()) {
+    while (!preg_match('!^\[(?P<time>[^\]]*)\] (PHP (?P<typea>.*?):|(?P<typeb>WordPress \w+ \w+))\s+(?P<msg>.*)$!', $log->current()) && !$log->eof()) {
 		$more[] = $log->current();
 		$log->next();
 	}
@@ -107,7 +107,8 @@ while (!$log->eof()) {
 	}
 	
 	$parts = [];
-	if (preg_match('!^\[(?P<time>[^\]]*)\] PHP (?P<type>.*?):\s+(?P<msg>.*)$!', $log->current(), $parts)) {
+    if (preg_match('!^\[(?P<time>[^\]]*)\] (PHP (?P<typea>.*?):|(?P<typeb>WordPress \w+ \w+))\s+(?P<msg>.*)$!', $log->current(), $parts)) {
+        $parts['type'] = (@$parts['typea'] ?: $parts['typeb']);
 		$msg = trim($parts['msg']);
 		$type = strtolower(trim($parts['type']));
 		$types[$type] = strtolower(preg_replace('/[^a-z]/i', '', $type));
