@@ -23,11 +23,11 @@ $cache     = null;
 /**
  * @var array Array of log lines
  */
-$logs = array();
+$logs = [];
 /**
  * @var array Array of log types
  */
-$types = array();
+$types = [];
 
 /**
  * https://gist.github.com/amnuts/8633684
