@@ -5,7 +5,7 @@
  *
  * A clean and effective single-file GUI for viewing entries in the PHP error
  * log, allowing for filtering by path and by type.
- * 
+ *
  * @author Andrew Collington, andy@amnuts.com
  * @version 1.0.1
  * @link https://github.com/amnuts/phperror-gui
@@ -29,13 +29,13 @@ function osort(&$array, $properties)
     if (is_string($properties)) {
         $properties = array($properties => SORT_ASC);
     }
-    uasort($array, function($a, $b) use ($properties) {
-        foreach($properties as $k => $v) {
+    uasort($array, function ($a, $b) use ($properties) {
+        foreach ($properties as $k => $v) {
             if (is_int($k)) {
                 $k = $v;
                 $v = SORT_ASC;
             }
-            $collapse = function($node, $props) {
+            $collapse = function ($node, $props) {
                 if (is_array($props)) {
                     foreach ($props as $prop) {
                         $node = (!isset($node->$prop)) ? null : $node->$prop;
@@ -66,102 +66,103 @@ if (empty($error_log)) {
 }
 
 try {
-	$log = new SplFileObject($error_log);
-	$log->setFlags(SplFileObject::DROP_NEW_LINE);
+    $log = new SplFileObject($error_log);
+    $log->setFlags(SplFileObject::DROP_NEW_LINE);
 } catch (RuntimeException $e) {
-	die("The file '{$error_log}' cannot be opened for reading.\n");
+    die("The file '{$error_log}' cannot be opened for reading.\n");
 }
 
 if ($cache !== null && file_exists($cache)) {
-	$cacheData = unserialize(file_get_contents($cache));
-	extract($cacheData);
-	$log->fseek($seek);
+    $cacheData = unserialize(file_get_contents($cache));
+    extract($cacheData);
+    $log->fseek($seek);
 }
 
 $prevError = new stdClass;
 while (!$log->eof()) {
-	if (preg_match('/stack trace:$/i', $log->current())) {
-		$stackTrace = $parts = [];
-		$log->next();
-		while ((preg_match('!^\[(?P<time>[^\]]*)\] PHP\s+(?P<msg>\d+\. .*)$!', $log->current(), $parts)
-			|| preg_match('!^(?P<msg>#\d+ .*)$!', $log->current(), $parts)
-			&& !$log->eof())
-		) {
-			$stackTrace[] = $parts['msg'];
-			$log->next();
-		}
-		if (substr($stackTrace[0], 0, 2) == '#0') {
-			$stackTrace[] = $log->current();
-			$log->next();
-		}
-		$prevError->trace = join("\n", $stackTrace);
-	}
-	
-	$more = [];
+    if (preg_match('/stack trace:$/i', $log->current())) {
+        $stackTrace = $parts = [];
+        $log->next();
+        while ((preg_match('!^\[(?P<time>[^\]]*)\] PHP\s+(?P<msg>\d+\. .*)$!', $log->current(), $parts)
+            || preg_match('!^(?P<msg>#\d+ .*)$!', $log->current(), $parts)
+            && !$log->eof())
+        ) {
+            $stackTrace[] = $parts['msg'];
+            $log->next();
+        }
+        if (substr($stackTrace[0], 0, 2) == '#0') {
+            $stackTrace[] = $log->current();
+            $log->next();
+        }
+        $prevError->trace = join("\n", $stackTrace);
+    }
+
+    $more = [];
     while (!preg_match('!^\[(?P<time>[^\]]*)\] (PHP (?P<typea>.*?):|(?P<typeb>WordPress \w+ \w+))\s+(?P<msg>.*)$!', $log->current()) && !$log->eof()) {
-		$more[] = $log->current();
-		$log->next();
-	}
-	if (!empty($more)) {
-		$prevError->more = join("\n", $more);
-	}
-	
-	$parts = [];
+        $more[] = $log->current();
+        $log->next();
+    }
+    if (!empty($more)) {
+        $prevError->more = join("\n", $more);
+    }
+
+    $parts = [];
     if (preg_match('!^\[(?P<time>[^\]]*)\] (PHP (?P<typea>.*?):|(?P<typeb>WordPress \w+ \w+))\s+(?P<msg>.*)$!', $log->current(), $parts)) {
         $parts['type'] = (@$parts['typea'] ?: $parts['typeb']);
-		$msg = trim($parts['msg']);
-		$type = strtolower(trim($parts['type']));
-		$types[$type] = strtolower(preg_replace('/[^a-z]/i', '', $type));
-		if (!isset($logs[$msg])) {
-			$data = [
-				'type'  => $type,
-				'first' => date_timestamp_get(date_create($parts['time'])),
-				'last'  => date_timestamp_get(date_create($parts['time'])),
-				'msg'   => $msg,
-				'hits'  => 1,
-				'trace' => null,
-				'more'  => null
-			];
-			$subparts = [];
-			if (preg_match('!(?<core> in (?P<path>(/|zend)[^ :]*)(?: on line |:)(?P<line>\d+))$!', $msg, $subparts)) {
-				$data['path'] = $subparts['path'];
-				$data['line'] = $subparts['line'];
-				$data['core'] = str_replace($subparts['core'], '', $data['msg']);
-				$data['code'] = '';
-				try {
-					$file = new SplFileObject(str_replace('zend.view://', '', $subparts['path']));
-					$file->seek($subparts['line'] - 4);
-					$i = 7;
-					do {
-						$data['code'] .= $file->current();
-						$file->next();
-					} while (--$i && !$file->eof());
-				} catch (Exception $e) {}
-			}
-			$logs[$msg] = (object)$data;
-			if (!isset($typecount[$type])) {
-				$typecount[$type] = 1;
-			} else {
-				++$typecount[$type];
-			}
-		} else {
-			++$logs[$msg]->hits;
-			$time = date_timestamp_get(date_create($parts['time']));
-			if ($time < $logs[$msg]->first) {
-				$logs[$msg]->first = $time;
-			}
-			if ($time > $logs[$msg]->last) {
-				$logs[$msg]->last = $time;
-			}
-		}
-		$prevError = &$logs[$msg];
-	}
-	$log->next();
+        $msg = trim($parts['msg']);
+        $type = strtolower(trim($parts['type']));
+        $types[$type] = strtolower(preg_replace('/[^a-z]/i', '', $type));
+        if (!isset($logs[$msg])) {
+            $data = [
+                'type'  => $type,
+                'first' => date_timestamp_get(date_create($parts['time'])),
+                'last'  => date_timestamp_get(date_create($parts['time'])),
+                'msg'   => $msg,
+                'hits'  => 1,
+                'trace' => null,
+                'more'  => null
+            ];
+            $subparts = [];
+            if (preg_match('!(?<core> in (?P<path>(/|zend)[^ :]*)(?: on line |:)(?P<line>\d+))$!', $msg, $subparts)) {
+                $data['path'] = $subparts['path'];
+                $data['line'] = $subparts['line'];
+                $data['core'] = str_replace($subparts['core'], '', $data['msg']);
+                $data['code'] = '';
+                try {
+                    $file = new SplFileObject(str_replace('zend.view://', '', $subparts['path']));
+                    $file->seek($subparts['line'] - 4);
+                    $i = 7;
+                    do {
+                        $data['code'] .= $file->current();
+                        $file->next();
+                    } while (--$i && !$file->eof());
+                } catch (Exception $e) {
+                }
+            }
+            $logs[$msg] = (object)$data;
+            if (!isset($typecount[$type])) {
+                $typecount[$type] = 1;
+            } else {
+                ++$typecount[$type];
+            }
+        } else {
+            ++$logs[$msg]->hits;
+            $time = date_timestamp_get(date_create($parts['time']));
+            if ($time < $logs[$msg]->first) {
+                $logs[$msg]->first = $time;
+            }
+            if ($time > $logs[$msg]->last) {
+                $logs[$msg]->last = $time;
+            }
+        }
+        $prevError = &$logs[$msg];
+    }
+    $log->next();
 }
 
 if ($cache !== null) {
-	$cacheData = serialize(['seek' => $log->getSize(), 'logs' => $logs, 'types' => $types, 'typecount' => $typecount]);
-	file_put_contents($cache, $cacheData);
+    $cacheData = serialize(['seek' => $log->getSize(), 'logs' => $logs, 'types' => $types, 'typecount' => $typecount]);
+    file_put_contents($cache, $cacheData);
 }
 
 $log = null;
@@ -196,7 +197,7 @@ $host = (function_exists('gethostname')
         article > div { border: 1px solid #000000; border-left-width: 10px; padding: 1em; }
         article > div > b { font-weight: bold; display: block; }
         article > div > i { display: block; }
-        article > div > blockquote { 
+        article > div > blockquote {
             display: none;
             background-color: #ededed;
             border: 1px solid #ababab;
@@ -243,7 +244,7 @@ $host = (function_exists('gethostname')
         ?>, <?php echo htmlentities($_SERVER['SERVER_SOFTWARE']); ?>)</p>
 
     <fieldset id="typeFilter">
-        <p>Filter by type: 
+        <p>Filter by type:
             <?php foreach ($types as $title => $class): ?>
             <label class="<?php echo $class; ?>">
                 <input type="checkbox" value="<?php echo $class; ?>" checked="checked" /> <?php
@@ -261,12 +262,12 @@ $host = (function_exists('gethostname')
     <fieldset id="sortOptions">
         <p>Sort by: <a href="?type=last&amp;order=asc">last seen (<span>asc</span>)</a>, <a href="?type=hits&amp;order=desc">hits (<span>desc</span>)</a>, <a href="?type=type&amp;order=asc">type (<span>a-z</span>)</a></p>
     </fieldset>
-    
-    <p id="entryCount"><?php echo $total; ?> distinct entr<?php echo ($total == 1 ? 'y' : 'ies'); ?></p>
+
+    <p id="entryCount"><?php echo $total; ?> distinct entr<?php echo($total == 1 ? 'y' : 'ies'); ?></p>
 
     <section>
-    <?php foreach($logs as $log): ?>
-        <article class="<?php echo $types[$log->type]; ?>" 
+    <?php foreach ($logs as $log): ?>
+        <article class="<?php echo $types[$log->type]; ?>"
                 data-path="<?php if (!empty($log->path)) echo htmlentities($log->path); ?>"
                 data-line="<?php if (!empty($log->line)) echo $log->line; ?>"
                 data-type="<?php echo $types[$log->type]; ?>"
@@ -281,7 +282,7 @@ $host = (function_exists('gethostname')
                     <?php if (!empty($log->path)): ?>
                         <?php echo htmlentities($log->path); ?>, line <?php echo $log->line; ?><br />
                     <?php endif; ?>
-                    last seen <?php echo date_format(date_create("@{$log->last}"), 'Y-m-d G:ia'); ?>, <?php echo $log->hits; ?> hit<?php echo ($log->hits == 1 ? '' : 's'); ?><br />
+                    last seen <?php echo date_format(date_create("@{$log->last}"), 'Y-m-d G:ia'); ?>, <?php echo $log->hits; ?> hit<?php echo($log->hits == 1 ? '' : 's'); ?><br />
                 </p>
                 <?php if (!empty($log->trace)): ?>
                     <?php $uid = uniqid('tbq'); ?>
@@ -297,7 +298,7 @@ $host = (function_exists('gethostname')
         </article>
     <?php endforeach; ?>
     </section>
-    
+
     <p id="nothingToShow">Nothing to show with your selected filtering.</p>
 <?php else: ?>
     <p>There are currently no PHP error log entries available.</p>
@@ -331,7 +332,7 @@ function visible() {
     } else {
         $('#nothingToShow').hide();
         if (len == <?php echo $total; ?>) {
-            $('#entryCount').text('<?php echo $total; ?> distinct entr<?php echo ($total == 1 ? 'y' : 'ies'); ?>');
+            $('#entryCount').text('<?php echo $total; ?> distinct entr<?php echo($total == 1 ? 'y' : 'ies'); ?>');
         } else {
             $('#entryCount').text(len + ' distinct entr' + (len == 1 ? 'y' : 'ies') + ' showing ('
                 + (<?php echo $total; ?> - len) + ' filtered out)');
