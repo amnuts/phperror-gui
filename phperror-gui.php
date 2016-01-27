@@ -20,6 +20,14 @@ $error_log = null;
  * @var string|null Path to log cache - must be writable - null for no cache
  */
 $cache     = null;
+/**
+ * @var array Array of log lines
+ */
+$logs = array();
+/**
+ * @var array Array of log types
+ */
+$types = array();
 
 /**
  * https://gist.github.com/amnuts/8633684
