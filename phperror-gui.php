@@ -201,7 +201,7 @@ $host = (function_exists('gethostname')
     <script src="//code.jquery.com/jquery-2.1.3.min.js" type="text/javascript"></script>
     <style type="text/css">
         body { font-family: Arial, Helvetica, sans-serif; font-size: 80%; margin: 0; padding: 0; }
-        article { width: 100%; display: block; margin: 0 0 1em 0; }
+        article { width: 100%; display: block; margin: 0 0 1em 0; background-color: #fcfcfc; }
         article > div { border: 1px solid #000000; border-left-width: 10px; padding: 1em; }
         article > div > b { font-weight: bold; display: block; }
         article > div > i { display: block; }
@@ -230,9 +230,8 @@ $host = (function_exists('gethostname')
         #typeFilter, #pathFilter, #sortOptions { border: 0; margin: 0; padding: 0; }
         #pathFilter input { width: 30em; }
         #typeFilter label { border-bottom: 4px solid #000000; margin-right: 1em; padding-bottom: 2px; }
-        #nothingToShow { display: none; }
-        .odd { background-color: #fcfcfc; }
-        .even { background-color: #f8f8f8; }
+        .hide { display: none; }
+        .alternate { background-color: #f8f8f8; }
         .deprecated { border-color: #acacac !important; }
         .notice { border-color: #6dcff6 !important; }
         .warning { border-color: #fbaf5d !important; }
@@ -273,7 +272,7 @@ $host = (function_exists('gethostname')
 
     <p id="entryCount"><?php echo $total; ?> distinct entr<?php echo($total == 1 ? 'y' : 'ies'); ?></p>
 
-    <section>
+    <section id="errorList">
     <?php foreach ($logs as $log): ?>
         <article class="<?php echo $types[$log->type]; ?>"
                 data-path="<?php if (!empty($log->path)) echo htmlentities($log->path); ?>"
@@ -307,7 +306,7 @@ $host = (function_exists('gethostname')
     <?php endforeach; ?>
     </section>
 
-    <p id="nothingToShow">Nothing to show with your selected filtering.</p>
+    <p id="nothingToShow" class="hide">Nothing to show with your selected filtering.</p>
 <?php else: ?>
     <p>There are currently no PHP error log entries available.</p>
 <?php endif; ?>
@@ -347,18 +346,19 @@ $host = (function_exists('gethostname')
     }
 
     function stripe() {
-        $('article:visible:odd').removeClass('even').addClass('odd');
-        $('article:visible:even').removeClass('odd').addClass('even');
+        var errors = $('#errorList').find('article');
+        errors.removeClass('alternate');
+        errors.filter(':not(.hide):odd').addClass('alternate');
     }
 
     function visible() {
-        var vis = $('article:visible');
+        var vis = $('#errorList').find('article').filter(':not(.hide)');
         var len = vis.length;
         if (len == 0) {
-            $('#nothingToShow').show();
+            $('#nothingToShow').removeClass('hide');
             $('#entryCount').text('0 entries showing (<?php echo $total; ?> filtered out)');
         } else {
-            $('#nothingToShow').hide();
+            $('#nothingToShow').addClass('hide');
             if (len == <?php echo $total; ?>) {
                 $('#entryCount').text('<?php echo $total; ?> distinct entr<?php echo($total == 1 ? 'y' : 'ies'); ?>');
             } else {
@@ -366,8 +366,8 @@ $host = (function_exists('gethostname')
                     + (<?php echo $total; ?> - len) + ' filtered out)');
             }
         }
-        $('#typeFilter label span').each(function(){
-            var count = ($('#pathFilter input').val() == ''
+        $('#typeFilter').find('label span').each(function(){
+            var count = ($('#pathFilter').find('input').val() == ''
                 ? $(this).data('total')
                 : $(this).data('current') + '/' + $(this).data('total')
             );
@@ -378,17 +378,17 @@ $host = (function_exists('gethostname')
 
     function filterSet() {
         var typeCount = {};
-        var checked = $('#typeFilter input:checkbox:checked').map(function(){
+        var checked = $('#typeFilter').find('input:checkbox:checked').map(function(){
             return $(this).val();
         }).get();
-        var input = $('#pathFilter input').val();
+        var input = $('#pathFilter').find('input').val();
         $('article').each(function(){
             var a = $(this);
             var found = a.data('path').toLowerCase().indexOf(input.toLowerCase());
             if ((input.length && found == -1) || (jQuery.inArray(a.data('type'), checked) == -1)) {
-                a.hide();
+                a.addClass('hide');
             } else {
-                a.show();
+                a.removeClass('hide');
             }
             if (found != -1) {
                 if (typeCount.hasOwnProperty(a.data('type'))) {
@@ -398,7 +398,7 @@ $host = (function_exists('gethostname')
                 }
             }
         });
-        $('#typeFilter label').each(function(){
+        $('#typeFilter').find('label').each(function(){
             var type = $(this).attr('class');
             if (typeCount.hasOwnProperty(type)) {
                 $('span', $(this)).data('current', typeCount[type]);
@@ -409,7 +409,7 @@ $host = (function_exists('gethostname')
     }
 
     function sortEntries(type, order) {
-        var aList = $('article');
+        var aList = $('#errorList').find('article');
         aList.sort(function(a, b){
             if (!isNaN($(a).data(type))) {
                 var entryA = parseInt($(a).data(type));
@@ -427,15 +427,15 @@ $host = (function_exists('gethostname')
     }
 
     $(function(){
-        $('#typeFilter input:checkbox').on('change', function(){
+        $('#typeFilter').find('input:checkbox').on('change', function(){
             filterSet();
             visible();
         });
-        $('#pathFilter input').bind('keyup', debounce(function(){
+        $('#pathFilter').find('input').on('keyup', debounce(function(){
             filterSet();
             visible();
         }));
-        $('#sortOptions a').on('click', function(){
+        $('#sortOptions').find('a').on('click', function(){
             var qs = parseQueryString($(this).attr('href'));
             sortEntries(qs.type, qs.order);
             $(this).attr('href', '?type=' + qs.type + '&order=' + (qs.order == 'asc' ? 'desc' : 'asc'));
