@@ -318,120 +318,140 @@ $host = (function_exists('gethostname')
 </footer>
 
 <script type="text/javascript">
-function parseQueryString(qs) {
-    var query = (qs || '?').substr(1), map = {};
-    query.replace(/([^&=]+)=?([^&]*)(?:&+|$)/g, function(match, key, value) {
-        (map[key] = map[key] || value);
-    });
-    return map;
-}
+    var debounce = function(func, wait, immediate) {
+        var timeout;
+        wait = wait || 250;
+        return function() {
+            var context = this, args = arguments;
+            var later = function() {
+                timeout = null;
+                if (!immediate) {
+                    func.apply(context, args);
+                }
+            };
+            var callNow = immediate && !timeout;
+            clearTimeout(timeout);
+            timeout = setTimeout(later, wait);
+            if (callNow) {
+                func.apply(context, args);
+            }
+        };
+    };
 
-function stripe() {
-    $('article:visible:odd').removeClass('even').addClass('odd');
-    $('article:visible:even').removeClass('odd').addClass('even');
-}
-
-function visible() {
-    var vis = $('article:visible');
-    var len = vis.length;
-    if (len == 0) {
-        $('#nothingToShow').show();
-        $('#entryCount').text('0 entries showing (<?php echo $total; ?> filtered out)');
-    } else {
-        $('#nothingToShow').hide();
-        if (len == <?php echo $total; ?>) {
-            $('#entryCount').text('<?php echo $total; ?> distinct entr<?php echo($total == 1 ? 'y' : 'ies'); ?>');
-        } else {
-            $('#entryCount').text(len + ' distinct entr' + (len == 1 ? 'y' : 'ies') + ' showing ('
-                + (<?php echo $total; ?> - len) + ' filtered out)');
-        }
+    function parseQueryString(qs) {
+        var query = (qs || '?').substr(1), map = {};
+        query.replace(/([^&=]+)=?([^&]*)(?:&+|$)/g, function(match, key, value) {
+            (map[key] = map[key] || value);
+        });
+        return map;
     }
-    $('#typeFilter label span').each(function(){
-        var count = ($('#pathFilter input').val() == ''
-            ? $(this).data('total')
-            : $(this).data('current') + '/' + $(this).data('total')
-        );
-        $(this).text(count);
-    });
-    stripe();
-}
 
-function filterSet() {
-    var typeCount = {};
-    var checked = $('#typeFilter input:checkbox:checked').map(function(){
-        return $(this).val();
-    }).get();
-    var input = $('#pathFilter input').val();
-    $('article').each(function(){
-        var a = $(this);
-        var found = a.data('path').toLowerCase().indexOf(input.toLowerCase());
-        if ((input.length && found == -1) || (jQuery.inArray(a.data('type'), checked) == -1)) {
-            a.hide();
+    function stripe() {
+        $('article:visible:odd').removeClass('even').addClass('odd');
+        $('article:visible:even').removeClass('odd').addClass('even');
+    }
+
+    function visible() {
+        var vis = $('article:visible');
+        var len = vis.length;
+        if (len == 0) {
+            $('#nothingToShow').show();
+            $('#entryCount').text('0 entries showing (<?php echo $total; ?> filtered out)');
         } else {
-            a.show();
-        }
-        if (found != -1) {
-            if (typeCount.hasOwnProperty(a.data('type'))) {
-                ++typeCount[a.data('type')];
+            $('#nothingToShow').hide();
+            if (len == <?php echo $total; ?>) {
+                $('#entryCount').text('<?php echo $total; ?> distinct entr<?php echo($total == 1 ? 'y' : 'ies'); ?>');
             } else {
-                typeCount[a.data('type')] = 1;
+                $('#entryCount').text(len + ' distinct entr' + (len == 1 ? 'y' : 'ies') + ' showing ('
+                    + (<?php echo $total; ?> - len) + ' filtered out)');
             }
         }
-    });
-    $('#typeFilter label').each(function(){
-        var type = $(this).attr('class');
-        if (typeCount.hasOwnProperty(type)) {
-            $('span', $(this)).data('current', typeCount[type]);
-        } else {
-            $('span', $(this)).data('current', 0);
-        }
-    });
-}
+        $('#typeFilter label span').each(function(){
+            var count = ($('#pathFilter input').val() == ''
+                ? $(this).data('total')
+                : $(this).data('current') + '/' + $(this).data('total')
+            );
+            $(this).text(count);
+        });
+        stripe();
+    }
 
-function sortEntries(type, order) {
-    var aList = $('article');
-    aList.sort(function(a, b){
-        if (!isNaN($(a).data(type))) {
-            var entryA = parseInt($(a).data(type));
-            var entryB = parseInt($(b).data(type));
-        } else {
-            var entryA = $(a).data(type);
-            var entryB = $(b).data(type);
-        }
-        if (order == 'asc') {
-            return (entryA < entryB) ? -1 : (entryA > entryB) ? 1 : 0;
-        }
-        return  (entryB < entryA) ? -1 : (entryB > entryA) ? 1 : 0;
-    });
-    $('section').html(aList);
-}
+    function filterSet() {
+        var typeCount = {};
+        var checked = $('#typeFilter input:checkbox:checked').map(function(){
+            return $(this).val();
+        }).get();
+        var input = $('#pathFilter input').val();
+        $('article').each(function(){
+            var a = $(this);
+            var found = a.data('path').toLowerCase().indexOf(input.toLowerCase());
+            if ((input.length && found == -1) || (jQuery.inArray(a.data('type'), checked) == -1)) {
+                a.hide();
+            } else {
+                a.show();
+            }
+            if (found != -1) {
+                if (typeCount.hasOwnProperty(a.data('type'))) {
+                    ++typeCount[a.data('type')];
+                } else {
+                    typeCount[a.data('type')] = 1;
+                }
+            }
+        });
+        $('#typeFilter label').each(function(){
+            var type = $(this).attr('class');
+            if (typeCount.hasOwnProperty(type)) {
+                $('span', $(this)).data('current', typeCount[type]);
+            } else {
+                $('span', $(this)).data('current', 0);
+            }
+        });
+    }
 
-$(function(){
-    $('#typeFilter input:checkbox').on('change', function(){
-        filterSet();
-        visible();
+    function sortEntries(type, order) {
+        var aList = $('article');
+        aList.sort(function(a, b){
+            if (!isNaN($(a).data(type))) {
+                var entryA = parseInt($(a).data(type));
+                var entryB = parseInt($(b).data(type));
+            } else {
+                var entryA = $(a).data(type);
+                var entryB = $(b).data(type);
+            }
+            if (order == 'asc') {
+                return (entryA < entryB) ? -1 : (entryA > entryB) ? 1 : 0;
+            }
+            return  (entryB < entryA) ? -1 : (entryB > entryA) ? 1 : 0;
+        });
+        $('section').html(aList);
+    }
+
+    $(function(){
+        $('#typeFilter input:checkbox').on('change', function(){
+            filterSet();
+            visible();
+        });
+        $('#pathFilter input').bind('keyup', debounce(function(){
+            filterSet();
+            visible();
+        }));
+        $('#sortOptions a').on('click', function(){
+            var qs = parseQueryString($(this).attr('href'));
+            sortEntries(qs.type, qs.order);
+            $(this).attr('href', '?type=' + qs.type + '&order=' + (qs.order == 'asc' ? 'desc' : 'asc'));
+            if (qs.type == 'type') {
+                $('span', $(this)).text((qs.order == 'asc' ? 'z-a' : 'a-z'));
+            } else {
+                $('span', $(this)).text((qs.order == 'asc' ? 'desc' : 'asc'));
+            }
+            return false;
+        });
+        $(document).on('click', 'a.codeblock, a.traceblock', function(e){
+            $('#' + $(this).data('for')).toggle();
+            return false;
+        });
+        stripe();
     });
-    $('#pathFilter input').on('keyup', function(){
-        filterSet();
-        visible();
-    });
-    $('#sortOptions a').on('click', function(){
-        var qs = parseQueryString($(this).attr('href'));
-        sortEntries(qs.type, qs.order);
-        $(this).attr('href', '?type=' + qs.type + '&order=' + (qs.order == 'asc' ? 'desc' : 'asc'));
-        if (qs.type == 'type') {
-            $('span', $(this)).text((qs.order == 'asc' ? 'z-a' : 'a-z'));
-        } else {
-            $('span', $(this)).text((qs.order == 'asc' ? 'desc' : 'asc'));
-        }
-        return false;
-    });
-    $(document).on('click', 'a.codeblock, a.traceblock', function(e){
-        $('#' + $(this).data('for')).toggle();
-        return false;
-    });
-    stripe();
-});
 </script>
 
 </body>
