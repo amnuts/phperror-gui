@@ -198,7 +198,7 @@ $host = (function_exists('gethostname')
     <meta name="MobileOptimized" content="320">
     <meta name="generator" content="https://github.com/amnuts/phperror-gui" />
     <title>PHP error log on <?php echo htmlentities($host); ?></title>
-    <script src="//code.jquery.com/jquery-2.1.3.min.js" type="text/javascript"></script>
+    <script src="//code.jquery.com/jquery-2.2.1.min.js" type="text/javascript"></script>
     <style type="text/css">
         body { font-family: Arial, Helvetica, sans-serif; font-size: 80%; margin: 0; padding: 0; }
         article { width: 100%; display: block; margin: 0 0 1em 0; background-color: #fcfcfc; }
