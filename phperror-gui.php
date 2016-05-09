@@ -106,7 +106,7 @@ while (!$log->eof()) {
     }
 
     $more = [];
-    while (!preg_match('!^\[(?P<time>[^\]]*)\] (PHP (?P<typea>.*?):|(?P<typeb>WordPress \w+ \w+))\s+(?P<msg>.*)$!', $log->current()) && !$log->eof()) {
+    while (!preg_match('!^\[(?P<time>[^\]]*)\] ((PHP|ojs2: )(?P<typea>.*?):|(?P<typeb>(WordPress|ojs2|\w has produced)\s{1,}\w+ \w+))\s+(?P<msg>.*)$!', $log->current()) && !$log->eof()) {
         $more[] = $log->current();
         $log->next();
     }
@@ -115,8 +115,11 @@ while (!$log->eof()) {
     }
 
     $parts = [];
-    if (preg_match('!^\[(?P<time>[^\]]*)\] (PHP (?P<typea>.*?):|(?P<typeb>WordPress \w+ \w+))\s+(?P<msg>.*)$!', $log->current(), $parts)) {
+    if (preg_match('!^\[(?P<time>[^\]]*)\] ((PHP|ojs2: )(?P<typea>.*?):|(?P<typeb>(WordPress|ojs2|\w has produced)\s{1,}\w+ \w+))\s+(?P<msg>.*)$!', $log->current(), $parts)) {
         $parts['type'] = (@$parts['typea'] ?: $parts['typeb']);
+        if ($parts[3] == 'ojs2: ' || $parts[6] == 'ojs2') {
+            $parts['type'] = 'ojs2 application';
+        }
         $msg = trim($parts['msg']);
         $type = strtolower(trim($parts['type']));
         $types[$type] = strtolower(preg_replace('/[^a-z]/i', '', $type));
