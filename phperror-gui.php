@@ -228,6 +228,7 @@ $host = (function_exists('gethostname')
         footer a:hover { opacity: 1; }
         #container { padding: 2em; }
         #typeFilter, #pathFilter, #sortOptions { border: 0; margin: 0; padding: 0; }
+        #typeFilter > p { line-height: 2.2em; }
         #pathFilter input { width: 30em; }
         #typeFilter label { border-bottom: 4px solid #000000; margin-right: 1em; padding-bottom: 2px; }
         .hide { display: none; }
