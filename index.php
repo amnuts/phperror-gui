@@ -74,6 +74,124 @@ function pretty_message($message)
     print(str_replace('{{message}}', $message, $tpl_message));
 }
 
+class ErrorLog
+{
+    private $log;
+    private $types = [];
+    private $typecount = [];
+
+    public function __construct(SplFileObject $log)
+    {
+        $this->log = $log;
+    }
+
+    public function getTypes()
+    {
+        return $this->types;
+    }
+
+    public function getTypeCounts()
+    {
+        return $this->typecount;
+    }
+
+    public function parse()
+    {
+        $log = $this->log;
+        $logs = [];
+
+        $prevError = new stdClass;
+        while (!$log->eof()) {
+            if (preg_match('/stack trace:$/i', $log->current())) {
+                $stackTrace = $parts = [];
+                $log->next();
+                while ((preg_match('!^\[(?P<time>[^\]]*)\] PHP\s+(?P<msg>\d+\. .*)$!', $log->current(), $parts)
+                    || preg_match('!^(?P<msg>#\d+ .*)$!', $log->current(), $parts)
+                    || preg_match('/stack trace:$/i', $log->current())
+                    && !$log->eof())
+                ) {
+                    $stackTrace[] = $parts['msg'];
+                    $log->next();
+                }
+                // Not sure why this is here; it swallows up the next error message
+                //if (substr($stackTrace[0], 0, 2) == '#0') {
+                //    $stackTrace[] = $log->current();
+                //    $log->next();
+                //}
+                $prevError->trace = join("\n", $stackTrace);
+            }
+
+            $more = [];
+            while (!preg_match('!^\[(?P<time>[^\]]*)\] ((PHP|ojs2: )(?P<typea>.*?):|(?P<typeb>(WordPress|ojs2|\w has produced)\s{1,}\w+ \w+))\s+(?P<msg>.*)$!', $log->current()) && !$log->eof()) {
+                $more[] = $log->current();
+                $log->next();
+            }
+            if (!empty($more)) {
+                $prevError->more = join("\n", $more);
+            }
+
+            $parts = [];
+            if (preg_match('!^\[(?P<time>[^\]]*)\] ((PHP|ojs2: )(?P<typea>.*?):|(?P<typeb>(WordPress|ojs2|\w has produced)\s{1,}\w+ \w+))\s+(?P<msg>.*)$!', $log->current(), $parts)) {
+                $parts['type'] = (@$parts['typea'] ?: $parts['typeb']);
+                if ($parts[3] == 'ojs2: ' || $parts[6] == 'ojs2') {
+                    $parts['type'] = 'ojs2 application';
+                }
+                $msg = trim($parts['msg']);
+                $type = strtolower(trim($parts['type']));
+                $this->types[$type] = strtolower(preg_replace('/[^a-z]/i', '', $type));
+                if (!isset($logs[$msg])) {
+                    $data = [
+                        'type'  => $type,
+                        'first' => date_timestamp_get(date_create($parts['time'])),
+                        'last'  => date_timestamp_get(date_create($parts['time'])),
+                        'msg'   => $msg,
+                        'hits'  => 1,
+                        'trace' => null,
+                        'more'  => null
+                    ];
+                    $subparts = [];
+                    if (preg_match('!(?<core> in (?P<path>(/|zend)[^ :]*)(?: on line |:)(?P<line>\d+))$!', $msg, $subparts)) {
+                        $data['path'] = $subparts['path'];
+                        $data['line'] = $subparts['line'];
+                        $data['core'] = str_replace($subparts['core'], '', $data['msg']);
+                        $data['code'] = '';
+                        try {
+                            $file = new SplFileObject(str_replace('zend.view://', '', $subparts['path']));
+                            $file->seek($subparts['line'] - 4);
+                            $i = 7;
+                            do {
+                                $data['code'] .= $file->current();
+                                $file->next();
+                            } while (--$i && !$file->eof());
+                        } catch (Exception $e) {
+                        }
+                    }
+
+                    $logs[$msg] = (object)$data;
+                    if (!isset($this->typecount[$type])) {
+                        $this->typecount[$type] = 1;
+                    } else {
+                        ++$this->typecount[$type];
+                    }
+                } else {
+                    ++$logs[$msg]->hits;
+                    $time = date_timestamp_get(date_create($parts['time']));
+                    if ($time < $logs[$msg]->first) {
+                        $logs[$msg]->first = $time;
+                    }
+                    if ($time > $logs[$msg]->last) {
+                        $logs[$msg]->last = $time;
+                    }
+                }
+                $prevError = &$logs[$msg];
+            }
+            $log->next();
+        }
+
+        return $logs;
+    }
+}
+
 if ($error_log === null) {
     $error_log = ini_get('error_log');
 }
@@ -97,90 +215,11 @@ if ($cache !== null && file_exists($cache)) {
     $log->fseek($seek);
 }
 
-$prevError = new stdClass;
-while (!$log->eof()) {
-    if (preg_match('/stack trace:$/i', $log->current())) {
-        $stackTrace = $parts = [];
-        $log->next();
-        while ((preg_match('!^\[(?P<time>[^\]]*)\] PHP\s+(?P<msg>\d+\. .*)$!', $log->current(), $parts)
-            || preg_match('!^(?P<msg>#\d+ .*)$!', $log->current(), $parts)
-            && !$log->eof())
-        ) {
-            $stackTrace[] = $parts['msg'];
-            $log->next();
-        }
-        if (substr($stackTrace[0], 0, 2) == '#0') {
-            $stackTrace[] = $log->current();
-            $log->next();
-        }
-        $prevError->trace = join("\n", $stackTrace);
-    }
+$errorlog = new ErrorLog($log);
+$logs = $errorlog->parse();
+$types = $errorlog->getTypes();
+$typecount = $errorlog->getTypeCounts();
 
-    $more = [];
-    while (!preg_match('!^\[(?P<time>[^\]]*)\] ((PHP|ojs2: )(?P<typea>.*?):|(?P<typeb>(WordPress|ojs2|\w has produced)\s{1,}\w+ \w+))\s+(?P<msg>.*)$!', $log->current()) && !$log->eof()) {
-        $more[] = $log->current();
-        $log->next();
-    }
-    if (!empty($more)) {
-        $prevError->more = join("\n", $more);
-    }
-
-    $parts = [];
-    if (preg_match('!^\[(?P<time>[^\]]*)\] ((PHP|ojs2: )(?P<typea>.*?):|(?P<typeb>(WordPress|ojs2|\w has produced)\s{1,}\w+ \w+))\s+(?P<msg>.*)$!', $log->current(), $parts)) {
-        $parts['type'] = (@$parts['typea'] ?: $parts['typeb']);
-        if ($parts[3] == 'ojs2: ' || $parts[6] == 'ojs2') {
-            $parts['type'] = 'ojs2 application';
-        }
-        $msg = trim($parts['msg']);
-        $type = strtolower(trim($parts['type']));
-        $types[$type] = strtolower(preg_replace('/[^a-z]/i', '', $type));
-        if (!isset($logs[$msg])) {
-            $data = [
-                'type'  => $type,
-                'first' => date_timestamp_get(date_create($parts['time'])),
-                'last'  => date_timestamp_get(date_create($parts['time'])),
-                'msg'   => $msg,
-                'hits'  => 1,
-                'trace' => null,
-                'more'  => null
-            ];
-            $subparts = [];
-            if (preg_match('!(?<core> in (?P<path>(/|zend)[^ :]*)(?: on line |:)(?P<line>\d+))$!', $msg, $subparts)) {
-                $data['path'] = $subparts['path'];
-                $data['line'] = $subparts['line'];
-                $data['core'] = str_replace($subparts['core'], '', $data['msg']);
-                $data['code'] = '';
-                try {
-                    $file = new SplFileObject(str_replace('zend.view://', '', $subparts['path']));
-                    $file->seek($subparts['line'] - 4);
-                    $i = 7;
-                    do {
-                        $data['code'] .= $file->current();
-                        $file->next();
-                    } while (--$i && !$file->eof());
-                } catch (Exception $e) {
-                }
-            }
-            $logs[$msg] = (object)$data;
-            if (!isset($typecount[$type])) {
-                $typecount[$type] = 1;
-            } else {
-                ++$typecount[$type];
-            }
-        } else {
-            ++$logs[$msg]->hits;
-            $time = date_timestamp_get(date_create($parts['time']));
-            if ($time < $logs[$msg]->first) {
-                $logs[$msg]->first = $time;
-            }
-            if ($time > $logs[$msg]->last) {
-                $logs[$msg]->last = $time;
-            }
-        }
-        $prevError = &$logs[$msg];
-    }
-    $log->next();
-}
 
 if ($cache !== null) {
     $cacheData = serialize(['seek' => $log->getSize(), 'logs' => $logs, 'types' => $types, 'typecount' => $typecount]);
