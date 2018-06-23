@@ -65,19 +65,33 @@ function osort(&$array, $properties)
     });
 }
 
+define('TPL_MESSAGE', <<<'EOS'
+<div style="margin: 20px auto; width: 400px; background-color: #eeeeee; padding: 20px;">
+    <div>{{message}}</div>
+</div>
+EOS
+);
+
+function pretty_message($message)
+{
+    print(str_replace('{{message}}', $message, TPL_MESSAGE));
+}
+
 if ($error_log === null) {
     $error_log = ini_get('error_log');
 }
 
 if (empty($error_log)) {
-    die('No error log was defined or could be determined from the ini settings.');
+    pretty_message('No error log was defined or could be determined from the ini settings.');
+    die();
 }
 
 try {
     $log = new SplFileObject($error_log);
     $log->setFlags(SplFileObject::DROP_NEW_LINE);
 } catch (RuntimeException $e) {
-    die("The file '{$error_log}' cannot be opened for reading.\n");
+    pretty_message("The file '{$error_log}' cannot be opened for reading.");
+    die();
 }
 
 if ($cache !== null && file_exists($cache)) {
@@ -203,9 +217,9 @@ $host = (function_exists('gethostname')
     <title>PHP error log on <?php echo htmlentities($host); ?></title>
     <script src="//code.jquery.com/jquery-2.2.1.min.js" type="text/javascript"></script>
     <style type="text/css">
-        body { font-family: Arial, Helvetica, sans-serif; font-size: 80%; margin: 0; padding: 0; }
-        article { width: 100%; display: block; margin: 0 0 1em 0; background-color: #fcfcfc; }
-        article > div { border: 1px solid #000000; border-left-width: 10px; padding: 1em; }
+        body { font-family: Arial, Helvetica, sans-serif; font-size: 13px; margin: 0; padding: 0; overflow-y: scroll; background-color: #ffffff; }
+        article { width: 100%; display: block; margin: 0 0 1em 0; background-color: #ffffff; }
+        article > div { border-left: 1px solid #000000; border-left-width: 10px; padding: 1em; -webkit-box-shadow: 1px 1px 5px 0px rgba(0,0,0,0.45); -moz-box-shadow: 1px 1px 5px 0px rgba(0,0,0,0.45); box-shadow: 1px 1px 5px 0px rgba(0,0,0,0.45); }
         article > div > b { font-weight: bold; display: block; }
         article > div > i { display: block; }
         article > div > blockquote {
@@ -229,11 +243,24 @@ $host = (function_exists('gethostname')
             font-size: 90%;
         }
         footer a:hover { opacity: 1; }
-        #container { padding: 2em; }
-        #typeFilter, #pathFilter, #sortOptions { border: 0; margin: 0; padding: 0; }
-        #typeFilter > p { line-height: 2.2em; }
-        #pathFilter input { width: 30em; }
-        #typeFilter label { border-bottom: 4px solid #000000; margin-right: 1em; padding-bottom: 2px; }
+        .title { font-weight: bold; }
+        .header { background-color: #6f7f59; color: #ffffff; padding: 12px 0; }
+        .contain { margin: 0 auto; max-width: 880px; }
+        .controls-wrapper { background-color: #ffffff; padding: 6px 0; }
+        .controls { margin: 0; display:flex; justify-content: flex-start; flex-wrap: wrap; }
+        .controls fieldset { padding: 0; border: 0; margin: 0 12px 6px 0; }
+        .controls .label { text-transform: uppercase; padding: 4px 0; color: #4a4a4a; }
+        .controls .control { line-height: 1.1; }
+        #typeFilter input { vertical-align: middle; margin: 0; margin-top: -1px; }
+        #typeFilter label { display: inline-block; border-bottom: 4px solid #000000; margin-right: 6px; padding-bottom: 5px; color: #4a4a4a; }
+        #pathFilter input { min-width: 100px; font-size: 100%; display: inline-block; padding: 3px; border: 1px solid #d3d3d3; line-height: 1.3; }
+        #sortOptions a { padding: 4px 8px; border: 1px solid #d3d3d3; border-radius: 0; color: #4a4a4a; display: inline-block; text-decoration: none; background-color: #fff; background-image: -webkit-linear-gradient(top,rgba(0,0,0,0),rgba(0,0,0,0.02)); background-image: linear-gradient(top,rgba(0,0,0,0),rgba(0,0,0,0.02)); margin-right: -5px; }
+        #sortOptions a:first-child { border-top-left-radius: 4px; border-bottom-left-radius: 4px; }
+        #sortOptions a:last-child { border-top-right-radius: 4px; border-bottom-right-radius: 4px; }
+        #sortOptions a:hover { background-color: #eee; }
+        #sortOptions a.is-active { border-bottom-color: #3367d6; -webkit-box-shadow: inset 0 -1px 0 #3367d6; box-shadow: inset 0 -1px 0 #3367d6; }
+        .count-message { padding: 6px 0; color: #4a4a4a; }
+        .errors-wrapper { background-color: #efefef; }
         .hide { display: none; }
         .alternate { background-color: #f8f8f8; }
         .deprecated { border-color: #acacac !important; }
@@ -247,34 +274,58 @@ $host = (function_exists('gethostname')
 </head>
 <body>
 
-<div id="container">
+<div id="page">
+
+<div class="header">
+    <div class="contain">
+        <span class="title">PHPError GUI</span> &bull;
+        <span class="server-details">
+            Error log '<?php echo htmlentities($error_log); ?>'
+            on <?php echo htmlentities($host); ?> (PHP <?php echo phpversion(); ?>,
+            <?php echo htmlentities($_SERVER['SERVER_SOFTWARE']); ?>)
+        </span>
+    </div>
+</div>
+
 <?php if (!empty($logs)): ?>
+<div class="controls-wrapper">
+    <div class="contain">
+        <div class="controls">
+            <fieldset id="typeFilter">
+                <div class="label">Filter by type</div>
+                <div class="control">
+                    <?php foreach ($types as $title => $class): ?>
+                    <label class="<?php echo $class; ?>">
+                        <input type="checkbox" value="<?php echo $class; ?>" checked="checked" /> <?php
+                            echo $title; ?> (<span data-total="<?php echo $typecount[$title]; ?>"><?php
+                            echo $typecount[$title]; ?></span>)
+                    </label>
+                    <?php endforeach; ?>
+                </div>
+            </fieldset>
 
-    <p id="serverDetails">Error log '<?php echo htmlentities($error_log); ?>' on <?php
-        echo htmlentities($host); ?> (PHP <?php echo phpversion();
-        ?>, <?php echo htmlentities($_SERVER['SERVER_SOFTWARE']); ?>)</p>
+            <fieldset id="pathFilter">
+                <div class="label">Filter by path</div>
+                <div class="control">
+                    <input type="text" value="" placeholder="Just start typing..." />
+                </div>
+            </fieldset>
 
-    <fieldset id="typeFilter">
-        <p>Filter by type:
-            <?php foreach ($types as $title => $class): ?>
-            <label class="<?php echo $class; ?>">
-                <input type="checkbox" value="<?php echo $class; ?>" checked="checked" /> <?php
-                    echo $title; ?> (<span data-total="<?php echo $typecount[$title]; ?>"><?php
-                    echo $typecount[$title]; ?></span>)
-            </label>
-            <?php endforeach; ?>
-        </p>
-    </fieldset>
+            <fieldset id="sortOptions">
+                <div class="label">Sort by</div>
+                <div class="control">
+                    <a href="?type=last&amp;order=asc">last seen (<span>asc</span>)</a>
+                    <a href="?type=hits&amp;order=desc">hits (<span>desc</span>)</a>
+                    <a href="?type=type&amp;order=asc">type (<span>a-z</span>)</a>
+                </div>
+            </fieldset>
+        </div>
+    </div>
+</div>
 
-    <fieldset id="pathFilter">
-        <p><label>Filter by path: <input type="text" value="" placeholder="Just start typing..." /></label></p>
-    </fieldset>
-
-    <fieldset id="sortOptions">
-        <p>Sort by: <a href="?type=last&amp;order=asc">last seen (<span>asc</span>)</a>, <a href="?type=hits&amp;order=desc">hits (<span>desc</span>)</a>, <a href="?type=type&amp;order=asc">type (<span>a-z</span>)</a></p>
-    </fieldset>
-
-    <p id="entryCount"><?php echo $total; ?> distinct entr<?php echo($total == 1 ? 'y' : 'ies'); ?></p>
+<div class="errors-wrapper">
+<div class="contain">
+    <div id="entryCount" class="count-message"><?php echo $total; ?> distinct entr<?php echo($total == 1 ? 'y' : 'ies'); ?></div>
 
     <section id="errorList">
     <?php foreach ($logs as $log): ?>
@@ -287,7 +338,7 @@ $host = (function_exists('gethostname')
             <div class="<?php echo $types[$log->type]; ?>">
                 <i><?php echo htmlentities($log->type); ?></i> <b><?php echo htmlentities((empty($log->core) ? $log->msg : $log->core)); ?></b><br />
                 <?php if (!empty($log->more)): ?>
-                	<p><i><?php echo nl2br(htmlentities($log->more)); ?></i></p>
+                    <p><i><?php echo nl2br(htmlentities($log->more)); ?></i></p>
                 <?php endif; ?>
                 <p>
                     <?php if (!empty($log->path)): ?>
@@ -311,10 +362,14 @@ $host = (function_exists('gethostname')
     </section>
 
     <p id="nothingToShow" class="hide">Nothing to show with your selected filtering.</p>
-<?php else: ?>
-    <p>There are currently no PHP error log entries available.</p>
-<?php endif; ?>
 </div>
+</div>
+<?php else: ?>
+    <div class="contain">
+        <p>There are currently no PHP error log entries available.</p>
+    </div>
+<?php endif; ?>
+</div><!-- .page -->
 
 <footer>
     <a href="https://github.com/amnuts/phperror-gui" target="_blank">https://github.com/amnuts/phperror-gui</a>
@@ -442,6 +497,10 @@ $host = (function_exists('gethostname')
         $('#sortOptions').find('a').on('click', function(){
             var qs = parseQueryString($(this).attr('href'));
             sortEntries(qs.type, qs.order);
+
+            $('#sortOptions').find('a').removeClass('is-active');
+            $(this).addClass('is-active');
+
             $(this).attr('href', '?type=' + qs.type + '&order=' + (qs.order == 'asc' ? 'desc' : 'asc'));
             if (qs.type == 'type') {
                 $('span', $(this)).text((qs.order == 'asc' ? 'z-a' : 'a-z'));
