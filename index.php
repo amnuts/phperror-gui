@@ -65,19 +65,213 @@ function osort(&$array, $properties)
     });
 }
 
+function pretty_message($message)
+{
+    $tpl_message = '<div style="margin: 20px auto; width: 400px; background-color: #eeeeee; padding: 20px;">
+        <div>{{message}}</div>
+    </div>';
+
+    print(str_replace('{{message}}', $message, $tpl_message));
+}
+
+class ErrorLog
+{
+    const REGEX_ERROR_LINE = '!^\[(?P<time>[^\]]*)\] ((PHP|ojs2: )(?P<typea>.*?):|(?P<typeb>(WordPress|ojs2|\w has produced)\s{1,}\w+ \w+))\s+(?P<msg>.*)$!';
+    const REGEX_TRACE_LINE = '/stack trace:$/i';
+    const REGEX_TRACE_TYPE_A = '!^\[(?P<time>[^\]]*)\] PHP\s+(?P<msg>\d+\. .*)$!';
+    const REGEX_TRACE_TYPE_B = '!^(?P<msg>#\d+ .*)$!';
+
+    private $log;
+    private $types = [];
+    private $typecount = [];
+
+    public function __construct(SplFileObject $log)
+    {
+        $this->log = $log;
+    }
+
+    public function getTypes()
+    {
+        return $this->types;
+    }
+
+    public function getTypeCounts()
+    {
+        return $this->typecount;
+    }
+
+    public function parse()
+    {
+        $log = $this->log;
+        $logs = [];
+
+        $prevError = new stdClass;
+        while (!$log->eof()) {
+            $this->captureStackTrace($log, $prevError);
+            $this->captureAnyAdditionalText($log, $prevError);
+
+            $parts = [];
+            if (preg_match(self::REGEX_ERROR_LINE, $log->current(), $parts)) {
+                $type = $this->getErrorType($parts);
+                $msg = trim($parts['msg']);
+
+                if (!isset($logs[$msg])) {
+                    $logs[$msg] = $this->createEntry($type, $parts['time'], $msg);
+                } else {
+                    $this->updateEntry($logs[$msg], $parts['time']);
+                }
+                $prevError = &$logs[$msg];
+            }
+            $log->next();
+        }
+
+        return $logs;
+    }
+
+    protected function createEntry($type, $time, $msg)
+    {
+        $data = [
+            'type'  => $type,
+            'first' => date_timestamp_get(date_create($time)),
+            'last'  => date_timestamp_get(date_create($time)),
+            'msg'   => $msg,
+            'hits'  => 1,
+            'trace' => null,
+            'more'  => null
+        ];
+        $entry = (object)$data;
+        $this->captureFileDataFromMessage($entry);
+
+        $this->increaseTypecount($type);
+
+        return $entry;
+    }
+
+    protected function updateEntry($entry, $time)
+    {
+        ++$entry->hits;
+
+        $time = date_timestamp_get(date_create($time));
+
+        if ($time < $entry->first) {
+            $entry->first = $time;
+        }
+
+        if ($time > $entry->last) {
+            $entry->last = $time;
+        }
+    }
+
+    protected function captureFileDataFromMessage($entry)
+    {
+        $subparts = [];
+        if (preg_match('!(?<core> in (?P<path>(/|zend)[^ :]*)(?: on line |:)(?P<line>\d+))$!', $entry->msg, $subparts)) {
+            $entry->path = $subparts['path'];
+            $entry->line = $subparts['line'];
+            $entry->core = str_replace($subparts['core'], '', $entry->msg);
+            $entry->code = $this->getCodeSnippet($subparts['path'], $subparts['line']);
+        }
+    }
+
+    protected function getCodeSnippet($path, $line)
+    {
+        $code = '';
+        try {
+            $file = new SplFileObject(str_replace('zend.view://', '', $path));
+            $cursorline = $line - 4;
+            $file->seek($cursorline);
+            $i = 7;
+            do {
+                $code .= ++$cursorline . '. ' . $file->current();
+                $file->next();
+            } while (--$i && !$file->eof());
+        } catch (Exception $e) {
+        }
+
+        return $code;
+    }
+
+    public function captureStackTrace($log, $prevError)
+    {
+        if (preg_match(self::REGEX_TRACE_LINE, $log->current())) {
+            $stackTrace = $parts = [];
+            $log->next();
+            while ((preg_match(self::REGEX_TRACE_TYPE_A, $log->current(), $parts)
+                || preg_match(self::REGEX_TRACE_TYPE_B, $log->current(), $parts)
+                || preg_match(self::REGEX_TRACE_LINE, $log->current())
+                && !$log->eof())
+            ) {
+                $stackTrace[] = $parts['msg'];
+                $log->next();
+            }
+            // Not sure why this is here; it swallows up the next error message
+            //if (substr($stackTrace[0], 0, 2) == '#0') {
+            //    $stackTrace[] = $log->current();
+            //    $log->next();
+            //}
+            $prevError->trace = join("\n", $stackTrace);
+        }
+    }
+
+    public function captureAnyAdditionalText($log, $prevError)
+    {
+        $more = [];
+
+        while (!preg_match(self::REGEX_ERROR_LINE, $log->current()) && !$log->eof()) {
+            $more[] = $log->current();
+            $log->next();
+        }
+
+        if (!empty($more)) {
+            $prevError->more = join("\n", $more);
+        }
+    }
+
+    public function getErrorType($parts)
+    {
+        $type = (@$parts['typea'] ?: $parts['typeb']);
+
+        if ($parts[3] == 'ojs2: ' || $parts[6] == 'ojs2') {
+            $type = 'ojs2 application';
+        }
+
+        $type = strtolower(trim($type));
+
+        $this->addType($type);
+
+        return $type;
+    }
+
+    public function addType($type)
+    {
+        $this->types[$type] = strtolower(preg_replace('/[^a-z]/i', '', $type));
+    }
+
+    public function increaseTypecount($type)
+    {
+        if (!isset($this->typecount[$type])) {
+            $this->typecount[$type] = 1;
+        } else {
+            ++$this->typecount[$type];
+        }
+    }
+}
+
 if ($error_log === null) {
     $error_log = ini_get('error_log');
 }
 
 if (empty($error_log)) {
-    die('No error log was defined or could be determined from the ini settings.');
+    pretty_message('No error log was defined or could be determined from the ini settings.');
+    die();
 }
 
 try {
     $log = new SplFileObject($error_log);
     $log->setFlags(SplFileObject::DROP_NEW_LINE);
 } catch (RuntimeException $e) {
-    die("The file '{$error_log}' cannot be opened for reading.\n");
+    pretty_message("The file '{$error_log}' cannot be opened for reading.");
+    die();
 }
 
 if ($cache !== null && file_exists($cache)) {
@@ -86,90 +280,11 @@ if ($cache !== null && file_exists($cache)) {
     $log->fseek($seek);
 }
 
-$prevError = new stdClass;
-while (!$log->eof()) {
-    if (preg_match('/stack trace:$/i', $log->current())) {
-        $stackTrace = $parts = [];
-        $log->next();
-        while ((preg_match('!^\[(?P<time>[^\]]*)\] PHP\s+(?P<msg>\d+\. .*)$!', $log->current(), $parts)
-            || preg_match('!^(?P<msg>#\d+ .*)$!', $log->current(), $parts)
-            && !$log->eof())
-        ) {
-            $stackTrace[] = $parts['msg'];
-            $log->next();
-        }
-        if (substr($stackTrace[0], 0, 2) == '#0') {
-            $stackTrace[] = $log->current();
-            $log->next();
-        }
-        $prevError->trace = join("\n", $stackTrace);
-    }
+$errorlog = new ErrorLog($log);
+$logs = $errorlog->parse();
+$types = $errorlog->getTypes();
+$typecount = $errorlog->getTypeCounts();
 
-    $more = [];
-    while (!preg_match('!^\[(?P<time>[^\]]*)\] ((PHP|ojs2: )(?P<typea>.*?):|(?P<typeb>(WordPress|ojs2|\w has produced)\s{1,}\w+ \w+))\s+(?P<msg>.*)$!', $log->current()) && !$log->eof()) {
-        $more[] = $log->current();
-        $log->next();
-    }
-    if (!empty($more)) {
-        $prevError->more = join("\n", $more);
-    }
-
-    $parts = [];
-    if (preg_match('!^\[(?P<time>[^\]]*)\] ((PHP|ojs2: )(?P<typea>.*?):|(?P<typeb>(WordPress|ojs2|\w has produced)\s{1,}\w+ \w+))\s+(?P<msg>.*)$!', $log->current(), $parts)) {
-        $parts['type'] = (@$parts['typea'] ?: $parts['typeb']);
-        if ($parts[3] == 'ojs2: ' || $parts[6] == 'ojs2') {
-            $parts['type'] = 'ojs2 application';
-        }
-        $msg = trim($parts['msg']);
-        $type = strtolower(trim($parts['type']));
-        $types[$type] = strtolower(preg_replace('/[^a-z]/i', '', $type));
-        if (!isset($logs[$msg])) {
-            $data = [
-                'type'  => $type,
-                'first' => date_timestamp_get(date_create($parts['time'])),
-                'last'  => date_timestamp_get(date_create($parts['time'])),
-                'msg'   => $msg,
-                'hits'  => 1,
-                'trace' => null,
-                'more'  => null
-            ];
-            $subparts = [];
-            if (preg_match('!(?<core> in (?P<path>(/|zend)[^ :]*)(?: on line |:)(?P<line>\d+))$!', $msg, $subparts)) {
-                $data['path'] = $subparts['path'];
-                $data['line'] = $subparts['line'];
-                $data['core'] = str_replace($subparts['core'], '', $data['msg']);
-                $data['code'] = '';
-                try {
-                    $file = new SplFileObject(str_replace('zend.view://', '', $subparts['path']));
-                    $file->seek($subparts['line'] - 4);
-                    $i = 7;
-                    do {
-                        $data['code'] .= $file->current();
-                        $file->next();
-                    } while (--$i && !$file->eof());
-                } catch (Exception $e) {
-                }
-            }
-            $logs[$msg] = (object)$data;
-            if (!isset($typecount[$type])) {
-                $typecount[$type] = 1;
-            } else {
-                ++$typecount[$type];
-            }
-        } else {
-            ++$logs[$msg]->hits;
-            $time = date_timestamp_get(date_create($parts['time']));
-            if ($time < $logs[$msg]->first) {
-                $logs[$msg]->first = $time;
-            }
-            if ($time > $logs[$msg]->last) {
-                $logs[$msg]->last = $time;
-            }
-        }
-        $prevError = &$logs[$msg];
-    }
-    $log->next();
-}
 
 if ($cache !== null) {
     $cacheData = serialize(['seek' => $log->getSize(), 'logs' => $logs, 'types' => $types, 'typecount' => $typecount]);
@@ -203,9 +318,9 @@ $host = (function_exists('gethostname')
     <title>PHP error log on <?php echo htmlentities($host); ?></title>
     <script src="//code.jquery.com/jquery-2.2.1.min.js" type="text/javascript"></script>
     <style type="text/css">
-        body { font-family: Arial, Helvetica, sans-serif; font-size: 80%; margin: 0; padding: 0; }
-        article { width: 100%; display: block; margin: 0 0 1em 0; background-color: #fcfcfc; }
-        article > div { border: 1px solid #000000; border-left-width: 10px; padding: 1em; }
+        body { font-family: Arial, Helvetica, sans-serif; font-size: 13px; margin: 0; padding: 0; overflow-y: scroll; background-color: #ffffff; }
+        article { width: 100%; display: block; margin: 0 0 1em 0; background-color: #ffffff; }
+        article > div { border-left: 1px solid #000000; border-left-width: 10px; padding: 1em; -webkit-box-shadow: 1px 1px 5px 0px rgba(0,0,0,0.45); -moz-box-shadow: 1px 1px 5px 0px rgba(0,0,0,0.45); box-shadow: 1px 1px 5px 0px rgba(0,0,0,0.45); }
         article > div > b { font-weight: bold; display: block; }
         article > div > i { display: block; }
         article > div > blockquote {
@@ -216,9 +331,10 @@ $host = (function_exists('gethostname')
             overflow: auto;
             margin: 0;
         }
-        footer { border-top: 1px solid #ccc; padding: 1em 2em; }
+        footer { border-top: 1px solid #ccc; }
         footer a {
-            padding: 2em;
+            display: block;
+            padding: 1rem 26px;
             text-decoration: none;
             opacity: 0.7;
             background-position: 5px 50%;
@@ -229,11 +345,26 @@ $host = (function_exists('gethostname')
             font-size: 90%;
         }
         footer a:hover { opacity: 1; }
-        #container { padding: 2em; }
-        #typeFilter, #pathFilter, #sortOptions { border: 0; margin: 0; padding: 0; }
-        #typeFilter > p { line-height: 2.2em; }
-        #pathFilter input { width: 30em; }
-        #typeFilter label { border-bottom: 4px solid #000000; margin-right: 1em; padding-bottom: 2px; }
+        .title { font-weight: bold; }
+        .header { background-color: #6f7f59; color: #ffffff; padding: 12px 0; }
+        .contain { margin: 0 auto; max-width: 880px; }
+        .controls-wrapper { background-color: #ffffff; padding: 6px 0; border-bottom: 1px solid #d3d3d3; }
+        .controls { margin: 0; display:flex; justify-content: flex-start; flex-wrap: wrap; }
+        .controls fieldset { padding: 0; border: 0; margin: 0 12px 6px 0; }
+        .controls .label { text-transform: uppercase; padding: 4px 0; color: #4a4a4a; }
+        .controls .control { line-height: 1.1; }
+        #typeFilter input { vertical-align: middle; margin: 0; margin-top: -1px; }
+        #typeFilter label { display: inline-block; border-bottom: 4px solid #000000; margin-right: 6px; padding-bottom: 5px; color: #4a4a4a; }
+        #pathFilter input { min-width: 100px; font-size: 100%; display: inline-block; padding: 3px; border: 1px solid #d3d3d3; line-height: 1.3; }
+        #sortOptions a { padding: 4px 8px; border: 1px solid #d3d3d3; border-radius: 0; color: #4a4a4a; display: inline-block; text-decoration: none; background-color: #fff; background-image: -webkit-linear-gradient(top,rgba(0,0,0,0),rgba(0,0,0,0.02)); background-image: linear-gradient(top,rgba(0,0,0,0),rgba(0,0,0,0.02)); margin-right: -5px; }
+        #sortOptions a:first-child { border-top-left-radius: 4px; border-bottom-left-radius: 4px; }
+        #sortOptions a:last-child { border-top-right-radius: 4px; border-bottom-right-radius: 4px; }
+        #sortOptions a:hover { background-color: #eee; }
+        #sortOptions a.is-active { border-bottom-color: #3367d6; -webkit-box-shadow: inset 0 -1px 0 #3367d6; box-shadow: inset 0 -1px 0 #3367d6; }
+        #sortOptions a span { display: inline-block; }
+        .count-message { padding: 6px 0; color: #4a4a4a; }
+        .errors-wrapper { background-color: #efefef; padding-bottom: 1rem; }
+        .zero-state { padding: 3rem 0; }
         .hide { display: none; }
         .alternate { background-color: #f8f8f8; }
         .deprecated { border-color: #acacac !important; }
@@ -247,34 +378,58 @@ $host = (function_exists('gethostname')
 </head>
 <body>
 
-<div id="container">
+<div id="page">
+
+<div class="header">
+    <div class="contain">
+        <span class="title">PHPError GUI</span> &bull;
+        <span class="server-details">
+            Error log '<?php echo htmlentities($error_log); ?>'
+            on <?php echo htmlentities($host); ?> (PHP <?php echo phpversion(); ?>,
+            <?php echo htmlentities($_SERVER['SERVER_SOFTWARE']); ?>)
+        </span>
+    </div>
+</div>
+
 <?php if (!empty($logs)): ?>
+<div class="controls-wrapper">
+    <div class="contain">
+        <div class="controls">
+            <fieldset id="typeFilter">
+                <div class="label">Filter by type</div>
+                <div class="control">
+                    <?php foreach ($types as $title => $class): ?>
+                    <label class="<?php echo $class; ?>">
+                        <input type="checkbox" value="<?php echo $class; ?>" checked="checked" /> <?php
+                            echo $title; ?> (<span data-total="<?php echo $typecount[$title]; ?>"><?php
+                            echo $typecount[$title]; ?></span>)
+                    </label>
+                    <?php endforeach; ?>
+                </div>
+            </fieldset>
 
-    <p id="serverDetails">Error log '<?php echo htmlentities($error_log); ?>' on <?php
-        echo htmlentities($host); ?> (PHP <?php echo phpversion();
-        ?>, <?php echo htmlentities($_SERVER['SERVER_SOFTWARE']); ?>)</p>
+            <fieldset id="pathFilter">
+                <div class="label">Filter by path</div>
+                <div class="control">
+                    <input type="text" value="" placeholder="Just start typing..." />
+                </div>
+            </fieldset>
 
-    <fieldset id="typeFilter">
-        <p>Filter by type:
-            <?php foreach ($types as $title => $class): ?>
-            <label class="<?php echo $class; ?>">
-                <input type="checkbox" value="<?php echo $class; ?>" checked="checked" /> <?php
-                    echo $title; ?> (<span data-total="<?php echo $typecount[$title]; ?>"><?php
-                    echo $typecount[$title]; ?></span>)
-            </label>
-            <?php endforeach; ?>
-        </p>
-    </fieldset>
+            <fieldset id="sortOptions">
+                <div class="label">Sort by</div>
+                <div class="control">
+                    <a href="?type=last&amp;order=asc" class="is-active">last seen <span>↓</span></a>
+                    <a href="?type=hits&amp;order=desc">hits <span> </span></a>
+                    <a href="?type=type&amp;order=asc">type <span> </span></a>
+                </div>
+            </fieldset>
+        </div>
+    </div>
+</div>
 
-    <fieldset id="pathFilter">
-        <p><label>Filter by path: <input type="text" value="" placeholder="Just start typing..." /></label></p>
-    </fieldset>
-
-    <fieldset id="sortOptions">
-        <p>Sort by: <a href="?type=last&amp;order=asc">last seen (<span>asc</span>)</a>, <a href="?type=hits&amp;order=desc">hits (<span>desc</span>)</a>, <a href="?type=type&amp;order=asc">type (<span>a-z</span>)</a></p>
-    </fieldset>
-
-    <p id="entryCount"><?php echo $total; ?> distinct entr<?php echo($total == 1 ? 'y' : 'ies'); ?></p>
+<div class="errors-wrapper">
+<div class="contain">
+    <div id="entryCount" class="count-message"><?php echo $total; ?> distinct entr<?php echo($total == 1 ? 'y' : 'ies'); ?></div>
 
     <section id="errorList">
     <?php foreach ($logs as $log): ?>
@@ -287,7 +442,7 @@ $host = (function_exists('gethostname')
             <div class="<?php echo $types[$log->type]; ?>">
                 <i><?php echo htmlentities($log->type); ?></i> <b><?php echo htmlentities((empty($log->core) ? $log->msg : $log->core)); ?></b><br />
                 <?php if (!empty($log->more)): ?>
-                	<p><i><?php echo nl2br(htmlentities($log->more)); ?></i></p>
+                    <p><i><?php echo nl2br(htmlentities($log->more)); ?></i></p>
                 <?php endif; ?>
                 <p>
                     <?php if (!empty($log->path)): ?>
@@ -310,14 +465,20 @@ $host = (function_exists('gethostname')
     <?php endforeach; ?>
     </section>
 
-    <p id="nothingToShow" class="hide">Nothing to show with your selected filtering.</p>
-<?php else: ?>
-    <p>There are currently no PHP error log entries available.</p>
-<?php endif; ?>
+    <p id="nothingToShow" class="zero-state hide">Nothing to show with your selected filtering.</p>
 </div>
+</div>
+<?php else: ?>
+    <div class="contain">
+        <p class="zero-state">There are currently no PHP error log entries available.</p>
+    </div>
+<?php endif; ?>
+</div><!-- #page -->
 
 <footer>
-    <a href="https://github.com/amnuts/phperror-gui" target="_blank">https://github.com/amnuts/phperror-gui</a>
+    <div class="contain">
+        <a href="https://github.com/amnuts/phperror-gui" target="_blank">https://github.com/amnuts/phperror-gui</a>
+    </div>
 </footer>
 
 <script type="text/javascript">
@@ -442,12 +603,13 @@ $host = (function_exists('gethostname')
         $('#sortOptions').find('a').on('click', function(){
             var qs = parseQueryString($(this).attr('href'));
             sortEntries(qs.type, qs.order);
+
+            $('#sortOptions a').removeClass('is-active');
+            $(this).addClass('is-active');
+
+            $('#sortOptions a span').text(' ');
             $(this).attr('href', '?type=' + qs.type + '&order=' + (qs.order == 'asc' ? 'desc' : 'asc'));
-            if (qs.type == 'type') {
-                $('span', $(this)).text((qs.order == 'asc' ? 'z-a' : 'a-z'));
-            } else {
-                $('span', $(this)).text((qs.order == 'asc' ? 'desc' : 'asc'));
-            }
+            $('span', $(this)).text((qs.order == 'asc' ? '↑' : '↓'));
             return false;
         });
         $(document).on('click', 'a.codeblock, a.traceblock', function(e){
