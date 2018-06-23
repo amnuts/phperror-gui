@@ -257,6 +257,7 @@ $host = (function_exists('gethostname')
         #sortOptions a:last-child { border-top-right-radius: 4px; border-bottom-right-radius: 4px; }
         #sortOptions a:hover { background-color: #eee; }
         #sortOptions a.is-active { border-bottom-color: #3367d6; -webkit-box-shadow: inset 0 -1px 0 #3367d6; box-shadow: inset 0 -1px 0 #3367d6; }
+        #sortOptions a span { display: inline-block; }
         .count-message { padding: 6px 0; color: #4a4a4a; }
         .errors-wrapper { background-color: #efefef; padding-bottom: 1rem; }
         .zero-state { padding: 3rem 0; }
@@ -313,7 +314,7 @@ $host = (function_exists('gethostname')
             <fieldset id="sortOptions">
                 <div class="label">Sort by</div>
                 <div class="control">
-                    <a href="?type=last&amp;order=asc">last seen <span> </span></a>
+                    <a href="?type=last&amp;order=asc" class="is-active">last seen <span>↓</span></a>
                     <a href="?type=hits&amp;order=desc">hits <span> </span></a>
                     <a href="?type=type&amp;order=asc">type <span> </span></a>
                 </div>
