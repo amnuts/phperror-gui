@@ -178,10 +178,11 @@ class ErrorLog
         $code = '';
         try {
             $file = new SplFileObject(str_replace('zend.view://', '', $path));
-            $file->seek($line - 4);
+            $cursorline = $line - 4;
+            $file->seek($cursorline);
             $i = 7;
             do {
-                $code .= $file->current();
+                $code .= ++$cursorline . '. ' . $file->current();
                 $file->next();
             } while (--$i && !$file->eof());
         } catch (Exception $e) {
