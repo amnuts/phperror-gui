@@ -259,6 +259,7 @@ $host = (function_exists('gethostname')
         #sortOptions a.is-active { border-bottom-color: #3367d6; -webkit-box-shadow: inset 0 -1px 0 #3367d6; box-shadow: inset 0 -1px 0 #3367d6; }
         .count-message { padding: 6px 0; color: #4a4a4a; }
         .errors-wrapper { background-color: #efefef; padding-bottom: 1rem; }
+        .zero-state { padding: 3rem 0; }
         .hide { display: none; }
         .alternate { background-color: #f8f8f8; }
         .deprecated { border-color: #acacac !important; }
@@ -312,9 +313,9 @@ $host = (function_exists('gethostname')
             <fieldset id="sortOptions">
                 <div class="label">Sort by</div>
                 <div class="control">
-                    <a href="?type=last&amp;order=asc">last seen (<span>asc</span>)</a>
-                    <a href="?type=hits&amp;order=desc">hits (<span>desc</span>)</a>
-                    <a href="?type=type&amp;order=asc">type (<span>a-z</span>)</a>
+                    <a href="?type=last&amp;order=asc">last seen <span> </span></a>
+                    <a href="?type=hits&amp;order=desc">hits <span> </span></a>
+                    <a href="?type=type&amp;order=asc">type <span> </span></a>
                 </div>
             </fieldset>
         </div>
@@ -359,15 +360,15 @@ $host = (function_exists('gethostname')
     <?php endforeach; ?>
     </section>
 
-    <p id="nothingToShow" class="hide">Nothing to show with your selected filtering.</p>
+    <p id="nothingToShow" class="zero-state hide">Nothing to show with your selected filtering.</p>
 </div>
 </div>
 <?php else: ?>
     <div class="contain">
-        <p>There are currently no PHP error log entries available.</p>
+        <p class="zero-state">There are currently no PHP error log entries available.</p>
     </div>
 <?php endif; ?>
-</div><!-- .page -->
+</div><!-- #page -->
 
 <footer>
     <div class="contain">
@@ -498,15 +499,12 @@ $host = (function_exists('gethostname')
             var qs = parseQueryString($(this).attr('href'));
             sortEntries(qs.type, qs.order);
 
-            $('#sortOptions').find('a').removeClass('is-active');
+            $('#sortOptions a').removeClass('is-active');
             $(this).addClass('is-active');
 
+            $('#sortOptions a span').text(' ');
             $(this).attr('href', '?type=' + qs.type + '&order=' + (qs.order == 'asc' ? 'desc' : 'asc'));
-            if (qs.type == 'type') {
-                $('span', $(this)).text((qs.order == 'asc' ? 'z-a' : 'a-z'));
-            } else {
-                $('span', $(this)).text((qs.order == 'asc' ? 'desc' : 'asc'));
-            }
+            $('span', $(this)).text((qs.order == 'asc' ? '↑' : '↓'));
             return false;
         });
         $(document).on('click', 'a.codeblock, a.traceblock', function(e){
