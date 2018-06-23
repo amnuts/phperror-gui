@@ -149,15 +149,10 @@ class ErrorLog
                         'trace' => null,
                         'more'  => null
                     ];
-                    $subparts = [];
-                    if (preg_match('!(?<core> in (?P<path>(/|zend)[^ :]*)(?: on line |:)(?P<line>\d+))$!', $msg, $subparts)) {
-                        $data['path'] = $subparts['path'];
-                        $data['line'] = $subparts['line'];
-                        $data['core'] = str_replace($subparts['core'], '', $data['msg']);
-                        $data['code'] = $this->getCodeSnippet($subparts['path'], $subparts['line']);
-                    }
+                    $logItem = (object)$data;
+                    $this->captureFileDataFromMessage($logItem);
 
-                    $logs[$msg] = (object)$data;
+                    $logs[$msg] = $logItem;
                     if (!isset($this->typecount[$type])) {
                         $this->typecount[$type] = 1;
                     } else {
@@ -179,6 +174,17 @@ class ErrorLog
         }
 
         return $logs;
+    }
+
+    protected function captureFileDataFromMessage($logItem)
+    {
+        $subparts = [];
+        if (preg_match('!(?<core> in (?P<path>(/|zend)[^ :]*)(?: on line |:)(?P<line>\d+))$!', $logItem->msg, $subparts)) {
+            $logItem->path = $subparts['path'];
+            $logItem->line = $subparts['line'];
+            $logItem->core = str_replace($subparts['core'], '', $logItem->msg);
+            $logItem->code = $this->getCodeSnippet($subparts['path'], $subparts['line']);
+        }
     }
 
     protected function getCodeSnippet($path, $line)
