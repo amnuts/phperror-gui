@@ -154,17 +154,7 @@ class ErrorLog
                         $data['path'] = $subparts['path'];
                         $data['line'] = $subparts['line'];
                         $data['core'] = str_replace($subparts['core'], '', $data['msg']);
-                        $data['code'] = '';
-                        try {
-                            $file = new SplFileObject(str_replace('zend.view://', '', $subparts['path']));
-                            $file->seek($subparts['line'] - 4);
-                            $i = 7;
-                            do {
-                                $data['code'] .= $file->current();
-                                $file->next();
-                            } while (--$i && !$file->eof());
-                        } catch (Exception $e) {
-                        }
+                        $data['code'] = $this->getCodeSnippet($subparts['path'], $subparts['line']);
                     }
 
                     $logs[$msg] = (object)$data;
@@ -189,6 +179,23 @@ class ErrorLog
         }
 
         return $logs;
+    }
+
+    protected function getCodeSnippet($path, $line)
+    {
+        $code = '';
+        try {
+            $file = new SplFileObject(str_replace('zend.view://', '', $path));
+            $file->seek($line - 4);
+            $i = 7;
+            do {
+                $code .= $file->current();
+                $file->next();
+            } while (--$i && !$file->eof());
+        } catch (Exception $e) {
+        }
+
+        return $code;
     }
 }
 
