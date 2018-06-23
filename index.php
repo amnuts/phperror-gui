@@ -65,16 +65,13 @@ function osort(&$array, $properties)
     });
 }
 
-define('TPL_MESSAGE', <<<'EOS'
-<div style="margin: 20px auto; width: 400px; background-color: #eeeeee; padding: 20px;">
-    <div>{{message}}</div>
-</div>
-EOS
-);
-
 function pretty_message($message)
 {
-    print(str_replace('{{message}}', $message, TPL_MESSAGE));
+    $tpl_message = '<div style="margin: 20px auto; width: 400px; background-color: #eeeeee; padding: 20px;">
+        <div>{{message}}</div>
+    </div>';
+
+    print(str_replace('{{message}}', $message, $tpl_message));
 }
 
 if ($error_log === null) {
