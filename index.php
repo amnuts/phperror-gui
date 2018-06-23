@@ -76,6 +76,11 @@ function pretty_message($message)
 
 class ErrorLog
 {
+    const REGEX_ERROR_LINE = '!^\[(?P<time>[^\]]*)\] ((PHP|ojs2: )(?P<typea>.*?):|(?P<typeb>(WordPress|ojs2|\w has produced)\s{1,}\w+ \w+))\s+(?P<msg>.*)$!';
+    const REGEX_TRACE_LINE = '/stack trace:$/i';
+    const REGEX_TRACE_TYPE_A = '!^\[(?P<time>[^\]]*)\] PHP\s+(?P<msg>\d+\. .*)$!';
+    const REGEX_TRACE_TYPE_B = '!^(?P<msg>#\d+ .*)$!';
+
     private $log;
     private $types = [];
     private $typecount = [];
@@ -102,43 +107,14 @@ class ErrorLog
 
         $prevError = new stdClass;
         while (!$log->eof()) {
-            if (preg_match('/stack trace:$/i', $log->current())) {
-                $stackTrace = $parts = [];
-                $log->next();
-                while ((preg_match('!^\[(?P<time>[^\]]*)\] PHP\s+(?P<msg>\d+\. .*)$!', $log->current(), $parts)
-                    || preg_match('!^(?P<msg>#\d+ .*)$!', $log->current(), $parts)
-                    || preg_match('/stack trace:$/i', $log->current())
-                    && !$log->eof())
-                ) {
-                    $stackTrace[] = $parts['msg'];
-                    $log->next();
-                }
-                // Not sure why this is here; it swallows up the next error message
-                //if (substr($stackTrace[0], 0, 2) == '#0') {
-                //    $stackTrace[] = $log->current();
-                //    $log->next();
-                //}
-                $prevError->trace = join("\n", $stackTrace);
-            }
-
-            $more = [];
-            while (!preg_match('!^\[(?P<time>[^\]]*)\] ((PHP|ojs2: )(?P<typea>.*?):|(?P<typeb>(WordPress|ojs2|\w has produced)\s{1,}\w+ \w+))\s+(?P<msg>.*)$!', $log->current()) && !$log->eof()) {
-                $more[] = $log->current();
-                $log->next();
-            }
-            if (!empty($more)) {
-                $prevError->more = join("\n", $more);
-            }
+            $this->captureStackTrace($log, $prevError);
+            $this->captureAnyAdditionalText($log, $prevError);
 
             $parts = [];
-            if (preg_match('!^\[(?P<time>[^\]]*)\] ((PHP|ojs2: )(?P<typea>.*?):|(?P<typeb>(WordPress|ojs2|\w has produced)\s{1,}\w+ \w+))\s+(?P<msg>.*)$!', $log->current(), $parts)) {
-                $parts['type'] = (@$parts['typea'] ?: $parts['typeb']);
-                if ($parts[3] == 'ojs2: ' || $parts[6] == 'ojs2') {
-                    $parts['type'] = 'ojs2 application';
-                }
+            if (preg_match(self::REGEX_ERROR_LINE, $log->current(), $parts)) {
+                $type = $this->getErrorType($parts);
                 $msg = trim($parts['msg']);
-                $type = strtolower(trim($parts['type']));
-                $this->types[$type] = strtolower(preg_replace('/[^a-z]/i', '', $type));
+
                 if (!isset($logs[$msg])) {
                     $data = [
                         'type'  => $type,
@@ -202,6 +178,62 @@ class ErrorLog
         }
 
         return $code;
+    }
+
+    public function captureStackTrace($log, $prevError)
+    {
+        if (preg_match(self::REGEX_TRACE_LINE, $log->current())) {
+            $stackTrace = $parts = [];
+            $log->next();
+            while ((preg_match(self::REGEX_TRACE_TYPE_A, $log->current(), $parts)
+                || preg_match(self::REGEX_TRACE_TYPE_B, $log->current(), $parts)
+                || preg_match(self::REGEX_TRACE_LINE, $log->current())
+                && !$log->eof())
+            ) {
+                $stackTrace[] = $parts['msg'];
+                $log->next();
+            }
+            // Not sure why this is here; it swallows up the next error message
+            //if (substr($stackTrace[0], 0, 2) == '#0') {
+            //    $stackTrace[] = $log->current();
+            //    $log->next();
+            //}
+            $prevError->trace = join("\n", $stackTrace);
+        }
+    }
+
+    public function captureAnyAdditionalText($log, $prevError)
+    {
+        $more = [];
+
+        while (!preg_match(self::REGEX_ERROR_LINE, $log->current()) && !$log->eof()) {
+            $more[] = $log->current();
+            $log->next();
+        }
+
+        if (!empty($more)) {
+            $prevError->more = join("\n", $more);
+        }
+    }
+
+    public function getErrorType($parts)
+    {
+        $type = (@$parts['typea'] ?: $parts['typeb']);
+
+        if ($parts[3] == 'ojs2: ' || $parts[6] == 'ojs2') {
+            $type = 'ojs2 application';
+        }
+
+        $type = strtolower(trim($type));
+
+        $this->addType($type);
+
+        return $type;
+    }
+
+    public function addType($type)
+    {
+        $this->types[$type] = strtolower(preg_replace('/[^a-z]/i', '', $type));
     }
 }
 
