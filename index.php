@@ -230,9 +230,10 @@ $host = (function_exists('gethostname')
             overflow: auto;
             margin: 0;
         }
-        footer { border-top: 1px solid #ccc; padding: 1em 2em; }
+        footer { border-top: 1px solid #ccc; }
         footer a {
-            padding: 2em;
+            display: block;
+            padding: 1rem 26px;
             text-decoration: none;
             opacity: 0.7;
             background-position: 5px 50%;
@@ -246,7 +247,7 @@ $host = (function_exists('gethostname')
         .title { font-weight: bold; }
         .header { background-color: #6f7f59; color: #ffffff; padding: 12px 0; }
         .contain { margin: 0 auto; max-width: 880px; }
-        .controls-wrapper { background-color: #ffffff; padding: 6px 0; }
+        .controls-wrapper { background-color: #ffffff; padding: 6px 0; border-bottom: 1px solid #d3d3d3; }
         .controls { margin: 0; display:flex; justify-content: flex-start; flex-wrap: wrap; }
         .controls fieldset { padding: 0; border: 0; margin: 0 12px 6px 0; }
         .controls .label { text-transform: uppercase; padding: 4px 0; color: #4a4a4a; }
@@ -260,7 +261,7 @@ $host = (function_exists('gethostname')
         #sortOptions a:hover { background-color: #eee; }
         #sortOptions a.is-active { border-bottom-color: #3367d6; -webkit-box-shadow: inset 0 -1px 0 #3367d6; box-shadow: inset 0 -1px 0 #3367d6; }
         .count-message { padding: 6px 0; color: #4a4a4a; }
-        .errors-wrapper { background-color: #efefef; }
+        .errors-wrapper { background-color: #efefef; padding-bottom: 1rem; }
         .hide { display: none; }
         .alternate { background-color: #f8f8f8; }
         .deprecated { border-color: #acacac !important; }
@@ -372,7 +373,9 @@ $host = (function_exists('gethostname')
 </div><!-- .page -->
 
 <footer>
-    <a href="https://github.com/amnuts/phperror-gui" target="_blank">https://github.com/amnuts/phperror-gui</a>
+    <div class="contain">
+        <a href="https://github.com/amnuts/phperror-gui" target="_blank">https://github.com/amnuts/phperror-gui</a>
+    </div>
 </footer>
 
 <script type="text/javascript">
