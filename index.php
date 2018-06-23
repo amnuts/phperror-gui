@@ -116,33 +116,9 @@ class ErrorLog
                 $msg = trim($parts['msg']);
 
                 if (!isset($logs[$msg])) {
-                    $data = [
-                        'type'  => $type,
-                        'first' => date_timestamp_get(date_create($parts['time'])),
-                        'last'  => date_timestamp_get(date_create($parts['time'])),
-                        'msg'   => $msg,
-                        'hits'  => 1,
-                        'trace' => null,
-                        'more'  => null
-                    ];
-                    $logItem = (object)$data;
-                    $this->captureFileDataFromMessage($logItem);
-
-                    $logs[$msg] = $logItem;
-                    if (!isset($this->typecount[$type])) {
-                        $this->typecount[$type] = 1;
-                    } else {
-                        ++$this->typecount[$type];
-                    }
+                    $logs[$msg] = $this->createEntry($type, $parts['time'], $msg);
                 } else {
-                    ++$logs[$msg]->hits;
-                    $time = date_timestamp_get(date_create($parts['time']));
-                    if ($time < $logs[$msg]->first) {
-                        $logs[$msg]->first = $time;
-                    }
-                    if ($time > $logs[$msg]->last) {
-                        $logs[$msg]->last = $time;
-                    }
+                    $this->updateEntry($logs[$msg], $parts['time']);
                 }
                 $prevError = &$logs[$msg];
             }
@@ -152,14 +128,48 @@ class ErrorLog
         return $logs;
     }
 
-    protected function captureFileDataFromMessage($logItem)
+    protected function createEntry($type, $time, $msg)
+    {
+        $data = [
+            'type'  => $type,
+            'first' => date_timestamp_get(date_create($time)),
+            'last'  => date_timestamp_get(date_create($time)),
+            'msg'   => $msg,
+            'hits'  => 1,
+            'trace' => null,
+            'more'  => null
+        ];
+        $entry = (object)$data;
+        $this->captureFileDataFromMessage($entry);
+
+        $this->increaseTypecount($type);
+
+        return $entry;
+    }
+
+    protected function updateEntry($entry, $time)
+    {
+        ++$entry->hits;
+
+        $time = date_timestamp_get(date_create($time));
+
+        if ($time < $entry->first) {
+            $entry->first = $time;
+        }
+
+        if ($time > $entry->last) {
+            $entry->last = $time;
+        }
+    }
+
+    protected function captureFileDataFromMessage($entry)
     {
         $subparts = [];
-        if (preg_match('!(?<core> in (?P<path>(/|zend)[^ :]*)(?: on line |:)(?P<line>\d+))$!', $logItem->msg, $subparts)) {
-            $logItem->path = $subparts['path'];
-            $logItem->line = $subparts['line'];
-            $logItem->core = str_replace($subparts['core'], '', $logItem->msg);
-            $logItem->code = $this->getCodeSnippet($subparts['path'], $subparts['line']);
+        if (preg_match('!(?<core> in (?P<path>(/|zend)[^ :]*)(?: on line |:)(?P<line>\d+))$!', $entry->msg, $subparts)) {
+            $entry->path = $subparts['path'];
+            $entry->line = $subparts['line'];
+            $entry->core = str_replace($subparts['core'], '', $entry->msg);
+            $entry->code = $this->getCodeSnippet($subparts['path'], $subparts['line']);
         }
     }
 
@@ -234,6 +244,15 @@ class ErrorLog
     public function addType($type)
     {
         $this->types[$type] = strtolower(preg_replace('/[^a-z]/i', '', $type));
+    }
+
+    public function increaseTypecount($type)
+    {
+        if (!isset($this->typecount[$type])) {
+            $this->typecount[$type] = 1;
+        } else {
+            ++$this->typecount[$type];
+        }
     }
 }
 
